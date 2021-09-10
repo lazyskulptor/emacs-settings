@@ -5,7 +5,7 @@
 (global-set-key (kbd "C-,") 'xref-pop-marker-stack)
 (global-set-key (kbd "C-.") 'xref-find-definitions)
 (global-set-key (kbd "C-/") 'lsp-ui-peek-find-references)
-(global-set-key (kbd "M-.") 'lsp-ui-peek-find-implementation)
+(global-set-key (kbd "C-;") 'lsp-ui-peek-find-implementation)
 ;; (global-set-key (kbd "C-i") 'lsp-ui-peek-find-implementation)
 ;; (global-set-key (kbd "C-/") 'xref-find-references)
 ;; (global-set-key (kbd "C-/") 'lsp-ui-peek-find-references)
@@ -21,7 +21,7 @@
 (toggle-scroll-bar -1) 
 (tool-bar-mode -1) 
 
-(set-face-attribute 'default nil :height 150)
+(set-face-attribute 'default nil :height 160)
 (show-paren-mode 1)
 (setq tab-width 2)
 (global-display-line-numbers-mode)
@@ -33,6 +33,7 @@
 (setq mac-right-option-modifier 'meta)
 (setq typescript-indent-level 2)
 (setq lsp-eslint-unzipped-path (f-join "~/.emacs.d/lsp/eslint/unzipped"))
+(add-hook 'prog-mode-hook #'hs-minor-mode)
 
 
 ;;; end of files

@@ -14,6 +14,9 @@
   ) ;; Optional: In case `clojure-lsp` is not in your $PATH
 
 
+(use-package jest-test-mode
+  :ensure t
+  :hook ((typescript-mode . jest-test-mode)))
 (use-package company
   :ensure t
   :init
@@ -40,7 +43,8 @@
 ;;      lsp-enable-indentation nil ; uncomment to use cider indentation instead of lsp
 ;;      lsp-enable-completion-at-point nil ; uncomment to use cider completion instead of lsp
       create-lockfiles nil)
-(add-to-list 'auto-mode-alist '("\\.http\\'" . restclient-mode))
+;; (add-to-list 'auto-mode-alist '("\\.http\\'" . restclient-mode))
+(push '("\\.http\\'" . restclient-mode) auto-mode-alist)
 
 (use-package flycheck :ensure t)
 (use-package lsp-ui :ensure t :commands lsp-ui-mode)
@@ -50,6 +54,11 @@
 (use-package which-key :ensure t :config (which-key-mode))
 (use-package restclient :ensure t)
 (use-package magit :ensure t)
+
+(with-eval-after-load 'lsp-mode
+  (require 'dap-chrome)
+  (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration)
+  (yas-global-mode))
 
 
 ;;  end of file
