@@ -13,6 +13,7 @@
 (require 'use-package)
 (require 'lsp-setting)
 (require 'evil-setting)
+(require 'swagger-mode)
 (require 'settings)
 
 (use-package session :ensure t :init (add-hook 'after-init-hook 'session-initialize))
@@ -27,25 +28,24 @@
   :init (add-hook 'after-init-hook 'global-undo-fu-session-mode)
   :config (setq undo-fu-session-incompatible-files '("/COMMIT_EDITMSG\\'" "/git-rebase-todo\\'")))
 
-
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(package-selected-packages
-   '(undo-fu-session undo-fu exec-path-from-shell session evil magit restclient which-key dap-mode lsp-treemacs lsp-ivy lsp-ui flycheck projectile company lsp-mode cider json-mode js2-mode typescript-mode clojure-mode use-package yasnippet hydra))
- '(session-use-package t nil (session)))
+ '(auto-save-visited-mode t)
+ '(inhibit-startup-screen t)
+ '(mac-command-modifier 'super)
+ '(mac-option-modifier 'meta)
+ '(mac-right-command-modifier 'left)
+ '(mac-right-option-modifier 'meta)
+ '(package-selected-packages '(use-package yasnippet hydra))
+ '(session-use-package t nil (session))
+ '(typescript-indent-level 2))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  )
-
-
-(with-eval-after-load 'lsp-mode
-  (require 'dap-chrome)
-  (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration)
-  (yas-global-mode))
 
