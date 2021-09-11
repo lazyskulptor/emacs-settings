@@ -1,6 +1,7 @@
 (use-package lsp-mode
   :ensure t
-  :hook ((clojure-mode . lsp)
+  :hook ((lsp-mode . lsp-enable-which-key-integration)
+         (clojure-mode . lsp)
          (clojurec-mode . lsp)
          (clojurescript-mode . lsp)
          (typescript-mode . lsp)
@@ -12,7 +13,7 @@
   (global-set-key (kbd "C-i") 'lsp-ui-peek-find-implementation)
   (setq lsp-clojure-server-command '("bash" "-c" "/usr/local/Cellar/clojure-lsp-native/2021.08.24-14.41.56/bin/clojure-lsp"))
   ) ;; Optional: In case `clojure-lsp` is not in your $PATH
-
+(use-package lsp-java :ensure t :config (add-hook 'java-mode-hook 'lsp))
 
 (use-package company
   :ensure t
@@ -41,13 +42,22 @@
 (add-to-list 'auto-mode-alist '("\\.http\\'" . restclient-mode))
 
 (use-package flycheck :ensure t)
-(use-package lsp-ui :ensure t :commands lsp-ui-mode)
+(use-package hydra :ensure t)
+(use-package yasnippet :ensure t)
+(use-package lsp-ui
+  :ensure t
+  :commands lsp-ui-mode
+  :config
+  (setq lsp-ui-doc-enable nil))
 (use-package lsp-ivy :ensure t :commands lsp-ivy-workspace-symbol)
 (use-package lsp-treemacs :ensure t :commands lsp-treemacs-errors-list)
 (use-package dap-mode :ensure t)
 (use-package which-key :ensure t :config (which-key-mode))
 (use-package restclient :ensure t)
 (use-package magit :ensure t)
+
+(setq default-input-method "korean-hangul")
+(global-set-key (kbd "S-SPC") 'toggle-input-method)
 
 
 ;;  end of file

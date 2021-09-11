@@ -15,6 +15,12 @@
 (global-set-key (kbd "s-c") 'clipboard-kill-ring-save)
 (global-set-key (kbd "s-/") 'comment-line)
 
+;; (setq flycheck-keymap-prefix (kbd "s-1"))
+;; (global-set-key (kbd "f2") 'flycheck-next-error)
+;; (global-set-key (kbd "f3") 'flycheck-previous-error)
+
+;; (global-set-key (kbd "s-1") (lookup-key global-map (kbd "C-c !")))
+;; (setq flycheck-keymap-prefix (kbd "s-1"))
 
 
 ;; (menu-bar-mode -1) 
@@ -33,6 +39,9 @@
 (setq mac-right-option-modifier 'meta)
 (setq typescript-indent-level 2)
 (setq lsp-eslint-unzipped-path (f-join "~/.emacs.d/lsp/eslint/unzipped"))
+(setq ivy-use-virtual-buffers t)
+(setq ivy-count-format "(%d/%d) ")
+(ivy-mode 1)
 
 
 ;;; end of files
