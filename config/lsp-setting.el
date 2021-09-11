@@ -37,8 +37,6 @@
       company-minimum-prefix-length 1
       lsp-lens-enable t
       lsp-signature-auto-activate nil
-;;      lsp-enable-indentation nil ; uncomment to use cider indentation instead of lsp
-;;      lsp-enable-completion-at-point nil ; uncomment to use cider completion instead of lsp
       create-lockfiles nil)
 (add-to-list 'auto-mode-alist '("\\.http\\'" . restclient-mode))
 
