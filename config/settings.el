@@ -2,6 +2,9 @@
   (interactive)
   (other-window -1)))
 
+(setq default-input-method "korean-hangul")
+(global-set-key (kbd "S-SPC") 'toggle-input-method)
+
 (global-set-key (kbd "C-,") 'xref-pop-marker-stack)
 (global-set-key (kbd "C-.") 'xref-find-definitions)
 (global-set-key (kbd "C-/") 'lsp-ui-peek-find-references)
@@ -43,6 +46,13 @@
 (setq ivy-count-format "(%d/%d) ")
 (ivy-mode 1)
 
+
+(use-package yasnippet
+  :ensure t
+  :init (yas-reload-all)
+  :hook
+  (lsp-mode . yas-minor-mode)
+  (org-mode . yas-minor-mode))
 
 ;;; end of files
 (provide 'settings)
