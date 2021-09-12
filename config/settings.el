@@ -2,6 +2,9 @@
   (interactive)
   (other-window -1)))
 
+(setq default-input-method "korean-hangul")
+(global-set-key (kbd "S-SPC") 'toggle-input-method)
+
 (global-set-key (kbd "C-,") 'xref-pop-marker-stack)
 (global-set-key (kbd "C-.") 'xref-find-definitions)
 (global-set-key (kbd "C-/") 'lsp-ui-peek-find-references)
@@ -15,6 +18,12 @@
 (global-set-key (kbd "s-c") 'clipboard-kill-ring-save)
 (global-set-key (kbd "s-/") 'comment-line)
 
+;; (setq flycheck-keymap-prefix (kbd "s-1"))
+;; (global-set-key (kbd "f2") 'flycheck-next-error)
+;; (global-set-key (kbd "f3") 'flycheck-previous-error)
+
+;; (global-set-key (kbd "s-1") (lookup-key global-map (kbd "C-c !")))
+;; (setq flycheck-keymap-prefix (kbd "s-1"))
 
 
 ;; (menu-bar-mode -1) 
@@ -34,7 +43,17 @@
 (setq typescript-indent-level 2)
 (setq lsp-eslint-unzipped-path (f-join "~/.emacs.d/lsp/eslint/unzipped"))
 (add-hook 'prog-mode-hook #'hs-minor-mode)
+(setq ivy-use-virtual-buffers t)
+(setq ivy-count-format "(%d/%d) ")
+(ivy-mode 1)
 
+(use-package yasnippet
+  :ensure t
+  :init (yas-reload-all)
+  :hook
+  (prog-mode . yas-minor-mode)
+  (lsp-mode . yas-minor-mode)
+  (org-mode . yas-minor-mode))
 
 ;;; end of files
 (provide 'settings)
