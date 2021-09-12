@@ -1,0 +1,15 @@
+# -*- mode: snippet -*-
+# name: org-template 
+# key: org-template
+# --
+
+#+title: $1
+#+author: $2
+#+data: $3
+
+* $4
+  [[[[https://upload.wikimedia.org/wikipedia/commons/b/bd/Share_Icon.svg]]]]
+
+
+  #+begin_src 
+  #+end_src
