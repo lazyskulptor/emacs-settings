@@ -1,19 +1,19 @@
 (use-package lsp-mode
   :ensure t
   :hook ((lsp-mode . lsp-enable-which-key-integration)
-         (clojure-mode . lsp)
-         (clojurec-mode . lsp)
-         (clojurescript-mode . lsp)
-         (typescript-mode . lsp)
-         (js2-mode . lsp)
-         (json-mode . lsp))
+         (clojure-mode . lsp-deferred)
+         (clojurec-mode . lsp-deferred)
+         (clojurescript-mode . lsp-deferred)
+         (typescript-mode . lsp-deferred)
+         (js2-mode . lsp-deferred)
+         (json-mode . lsp-deferred))
   :config
   ;; add paths to your local installation of project mgmt tools, like lein
   (global-set-key (kbd "C-/") 'lsp-ui-peek-find-references)
   (global-set-key (kbd "C-i") 'lsp-ui-peek-find-implementation)
   (setq lsp-clojure-server-command '("bash" "-c" "/usr/local/Cellar/clojure-lsp-native/2021.08.24-14.41.56/bin/clojure-lsp"))
   ) ;; Optional: In case `clojure-lsp` is not in your $PATH
-(use-package lsp-java :ensure t :config (add-hook 'java-mode-hook 'lsp))
+(use-package lsp-java :ensure t :config (add-hook 'java-mode-hook 'lsp-deferred))
 
 (use-package company
   :ensure t
@@ -39,11 +39,12 @@
       lsp-lens-enable t
       lsp-signature-auto-activate nil
       create-lockfiles nil)
+
+(add-to-list 'auto-mode-alist '("\\.org\\'" . org-mode))
 (add-to-list 'auto-mode-alist '("\\.http\\'" . restclient-mode))
 
 (use-package flycheck :ensure t)
 (use-package hydra :ensure t)
-(use-package yasnippet :ensure t)
 (use-package lsp-ui
   :ensure t
   :commands lsp-ui-mode
@@ -55,9 +56,6 @@
 (use-package which-key :ensure t :config (which-key-mode))
 (use-package restclient :ensure t)
 (use-package magit :ensure t)
-
-(setq default-input-method "korean-hangul")
-(global-set-key (kbd "S-SPC") 'toggle-input-method)
 
 
 ;;  end of file
