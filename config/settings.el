@@ -44,6 +44,7 @@
 (setq lsp-eslint-unzipped-path (f-join "~/.emacs.d/lsp/eslint/unzipped"))
 (setq ivy-use-virtual-buffers t)
 (setq ivy-count-format "(%d/%d) ")
+;; (add-to-list 'company-backends 'company-yasnippet)
 (ivy-mode 1)
 
 
