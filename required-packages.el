@@ -1,3 +1,6 @@
+(push (expand-file-name "~/.emacs.d/config") load-path)
+(push (expand-file-name "~/.emacs.d/manual-packages") load-path)
+
 (require 'lang-modes)
 (require 'use-package)
 (require 'lsp-setting)
