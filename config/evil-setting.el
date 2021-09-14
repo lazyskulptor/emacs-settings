@@ -12,6 +12,8 @@
   :config
   ;; (evil-set-initial-state 'neotree-mode 'emacs)
   (evil-set-initial-state 'calendar-mode 'emacs)
+  (evil-set-initial-state 'Buffer-menu-mode 'emacs)
+  (evil-set-initial-state 'magit-popup-mode 'emacs)
   (evil-mode)
   (define-key evil-normal-state-map (kbd "C-.") nil)
   (define-key evil-normal-state-map (kbd "M-,") nil)
