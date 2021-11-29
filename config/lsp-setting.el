@@ -1,9 +1,15 @@
+(use-package yasnippet :ensure t)
+(use-package counsel :ensure t)
+(use-package eshell-up :ensure t)
+(use-package eshell-prompt-extras :ensure t)
+
 (use-package lsp-mode
   :ensure t
   :hook ((lsp-mode . lsp-enable-which-key-integration)
          (clojure-mode . lsp-deferred)
          (clojurec-mode . lsp-deferred)
          (clojurescript-mode . lsp-deferred)
+         (python-mode . lsp-deferred)
          (typescript-mode . lsp-deferred)
          (js2-mode . lsp-deferred)
          (json-mode . lsp-deferred))
@@ -13,7 +19,14 @@
   (global-set-key (kbd "C-i") 'lsp-ui-peek-find-implementation)
   (setq lsp-clojure-server-command '("bash" "-c" "/usr/local/Cellar/clojure-lsp-native/2021.08.24-14.41.56/bin/clojure-lsp"))
   ) ;; Optional: In case `clojure-lsp` is not in your $PATH
+
 (use-package lsp-java :ensure t :config (add-hook 'java-mode-hook 'lsp-deferred))
+(use-package lsp-jedi
+  :ensure t
+  :config
+  (with-eval-after-load "python-mode"
+    (add-to-list 'lsp-disabled-clients 'pyls)
+    (add-to-list 'lsp-enabled-clients 'jedi)))
 
 (use-package jest-test-mode
   :ensure t
@@ -40,7 +53,11 @@
       treemacs-space-between-root-nodes nil
       company-minimum-prefix-length 1
       lsp-lens-enable t
+      lsp-ui-doc-enable nil
+      lsp-ui-doc-position 'bottom
+      lsp-ui-doc-delay 0
       lsp-signature-auto-activate nil
+      lsp-diagnostic-clean-after-change t
       create-lockfiles nil)
 
 (add-to-list 'auto-mode-alist '("\\.org\\'" . org-mode))
@@ -50,21 +67,13 @@
 (use-package hydra :ensure t)
 (use-package lsp-ui
   :ensure t
-  :commands lsp-ui-mode
-  :config
-  (setq lsp-ui-doc-enable nil))
+  :commands lsp-ui-mode)
 (use-package lsp-ivy :ensure t :commands lsp-ivy-workspace-symbol)
 (use-package lsp-treemacs :ensure t :commands lsp-treemacs-errors-list)
 (use-package dap-mode :ensure t)
 (use-package which-key :ensure t :config (which-key-mode))
 (use-package restclient :ensure t)
 (use-package magit :ensure t)
-
-(with-eval-after-load 'lsp-mode
-  (require 'dap-chrome)
-  (add-hook 'lsp-mode-hook #'lsp-enable-which-key-integration)
-  (yas-global-mode))
-
 
 ;;  end of file
 (provide 'lsp-setting)
