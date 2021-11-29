@@ -11,16 +11,28 @@
   (setq evil-want-C-u-scroll t)
   :config
   ;; (evil-set-initial-state 'neotree-mode 'emacs)
+  (global-set-key (kbd "C-w") 'evil-window-map)
+
+  (define-key evil-normal-state-map (kbd "C-.") nil)
+
+  (define-key evil-window-map "f" 'other-frame)
+  (define-key evil-window-map "o" 'delete-other-windows)
+  (define-key evil-window-map "O" 'delete-other-frames)
+  (define-key evil-window-map "q" nil)
+  
   (evil-set-initial-state 'calendar-mode 'emacs)
   (evil-set-initial-state 'Buffer-menu-mode 'emacs)
   (evil-set-initial-state 'magit-popup-mode 'emacs)
   (evil-mode)
+  (define-key evil-insert-state-map (kbd "C-w") evil-window-map)
+  (define-key evil-normal-state-map (kbd "Z Q") nil)
   (define-key evil-normal-state-map (kbd "C-.") nil)
   (define-key evil-normal-state-map (kbd "M-,") nil)
   (define-key evil-normal-state-map (kbd "M-.") nil)
   (define-key evil-normal-state-map (kbd "M-/") nil)
+  (define-key evil-normal-state-map (kbd "C-i") nil)
   (define-key evil-normal-state-map "u" 'undo-fu-only-undo)
-  (define-key evil-normal-state-map "\C-r" 'undo-fu-only-redo)
+  (define-key evil-normal-state-map (kbd "C-r") 'undo-fu-only-redo)
   )
 
 (provide 'evil-setting)

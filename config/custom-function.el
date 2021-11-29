@@ -23,3 +23,5 @@
         (substring example 1 -1)))))
 
 (define-key jest-test-mode-map (kbd "C-c C-t u") 'jest-test-run-unit)
+
+(provide 'custom-function)
