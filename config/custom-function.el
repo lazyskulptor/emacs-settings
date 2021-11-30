@@ -16,12 +16,17 @@
 (defun jest-test-unit-at-point ()
   "Find the topmost it or test block from where the cursor is and extract the name."
   (save-excursion
-    (re-search-backward "it\(\'")
+    (re-search-backward "\\(it\([\'\"]\\|test\([\'\"]\\)")
     (let ((text (thing-at-point 'line t)))
-      (string-match "it\(\\(.*\\)," text)
-      (when-let ((example (match-string 1 text)))
+      (string-match "\\(it\(\\|test\(\\)\\(.*\\)," text)
+      (when-let ((example (match-string 2 text)))
         (substring example 1 -1)))))
 
+(defvar 
+(defun jest-search-nearest-test ()
+  (interactive)
+  
+  )
 (define-key jest-test-mode-map (kbd "C-c C-t u") 'jest-test-run-unit)
 
 (provide 'custom-function)
