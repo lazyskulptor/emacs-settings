@@ -39,7 +39,7 @@
 (toggle-scroll-bar -1) 
 (tool-bar-mode -1) 
 
-(set-face-attribute 'default nil :height 160)
+(set-face-attribute 'default nil :height 145)
 (show-paren-mode 1)
 (yas-global-mode 1)
 
