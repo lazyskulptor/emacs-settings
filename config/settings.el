@@ -5,6 +5,8 @@
 (setq default-input-method "korean-hangul")
 (global-set-key (kbd "<M-f4>") 'toggle-input-method)
 
+;; (setq tab-always-indent 'complete)
+(global-set-key (kbd "S-SPC") 'company-complete)
 (global-set-key (kbd "M-1") 'projectile-run-async-shell-command-in-root)
 (global-set-key (kbd "M-2") 'flycheck-next-error)
 (global-set-key (kbd "s-n") 'make-frame-on-monitor)

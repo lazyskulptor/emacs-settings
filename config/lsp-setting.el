@@ -1,11 +1,20 @@
+(push (expand-file-name "~/.emacs.d/config/lsp") load-path)
+
 (use-package yasnippet :ensure t)
 (use-package counsel :ensure t)
 (use-package eshell-up :ensure t)
 (use-package eshell-prompt-extras :ensure t)
 
+;; (setq company-backends
+;;       '(company-bbdb company-semantic company-cmake company-capf company-clang company-files
+;;                      (company-abbrev company-yasnippet company-capf)
+;;                      (company-dabbrev-code company-gtags company-etags company-keywords)
+;;                      company-oddmuse company-dabbrev))
+
 (use-package lsp-mode
   :ensure t
   :hook ((lsp-mode . lsp-enable-which-key-integration)
+         ;; (lsp-mode . (lambda () (push 'company-yasnippet company-backends)))
          (clojure-mode . lsp-deferred)
          (clojurec-mode . lsp-deferred)
          (clojurescript-mode . lsp-deferred)
@@ -18,15 +27,23 @@
   ;; add paths to your local installation of project mgmt tools, like lein
   (global-set-key (kbd "C-/") 'lsp-ui-peek-find-references)
   (global-set-key (kbd "C-i") 'lsp-ui-peek-find-implementation)
+  
   (setq lsp-clojure-server-command '("bash" "-c" "/usr/local/Cellar/clojure-lsp-native/2021.08.24-14.41.56/bin/clojure-lsp"))
   ) ;; Optional: In case `clojure-lsp` is not in your $PATH
 (use-package lsp-java :ensure t
   :config (add-hook 'java-mode-hook 'lsp-deferred)
           (add-hook 'java-mode-hook 'lsp-java-boot-lens-mode)
-          (add-hook 'conf-javaprop-mode-hook 'lsp-deferred))
+          (add-hook 'conf-javaprop-mode-hook 'lsp-deferred)
+          (define-prefix-command 'dap-java-map)
+          (global-set-key (kbd "C-c t") 'dap-java-map)
+          (global-set-key (kbd "C-c t u") 'dap-java-debug-test-method)
+          (global-set-key (kbd "C-c t c") 'dap-java-debug-test-class)
+          (global-set-key (kbd "C-c t a") 'dap-debug-last)
+          )
 (require 'lsp-java-boot)
-(setq lsp-java-vmargs '("-XX:+UseParallelGC" "-XX:GCTimeRatio=4" "-XX:AdaptiveSizePolicyWeight=90" "-Dsun.zip.disableMemoryMapping=true" "-Xmx2G" "-Xms1G"
-                        "-javaagent:/Users/josh/.m2/repository/org/projectlombok/lombok/1.18.20/lombok-1.18.20.jar"))
+;; (setq lsp-java-vmargs '("-noverify" "-XX:+UseG1GC" "-XX:+UseStringDeduplication" "-XX:+UseParallelGC" "-XX:GCTimeRatio=4" "-XX:AdaptiveSizePolicyWeight=90" "-Dsun.zip.disableMemoryMapping=true" "-Xmx2G" "-Xms1G"
+(setq lsp-java-vmargs '("-noverify" "-Xmx2G" "-XX:+UseG1GC" "-XX:+UseStringDeduplication" "-javaagent:/Users/josh/.emacs.d/lsp/lombok-1.18.20.jar"))
+
 (use-package lsp-jedi
   :ensure t
   :config
@@ -45,8 +62,6 @@
   (setq company-idle-delay 0)
   (setq company-show-numbers "on"))
 
-(add-to-list 'company-backends '(company-capf company-abbrev company-yasnippet))
-
 (use-package projectile
   :ensure t
   :init
@@ -55,7 +70,6 @@
               ("s-p" . projectile-command-map)
               ("C-c p" . projectile-command-map)))
 
-(setq tab-always-indent 'complete)
 (setq gc-cons-threshold (* 100 1024 1024)
       read-process-output-max (* 1024 1024)
       treemacs-space-between-root-nodes nil
@@ -84,6 +98,7 @@
 (use-package which-key :ensure t :config (which-key-mode))
 (use-package restclient :ensure t)
 (use-package magit :ensure t)
+(require 'default-projectile)
 
 ;;  end of file
 (provide 'lsp-setting)
