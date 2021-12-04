@@ -11,6 +11,11 @@
 ;;                      (company-dabbrev-code company-gtags company-etags company-keywords)
 ;;                      company-oddmuse company-dabbrev))
 
+  (define-prefix-command 'dap-mode-map)
+  (global-set-key (kbd "C-t") 'dap-mode-map)
+  (local-set-key (kbd "C-/") 'lsp-ui-peek-find-references)
+  (local-set-key (kbd "C-i") 'lsp-ui-peek-find-implementation)
+
 (use-package lsp-mode
   :ensure t
   :hook ((lsp-mode . lsp-enable-which-key-integration)
@@ -21,24 +26,34 @@
          (typescript-mode . lsp-deferred)
          (js2-mode . lsp-deferred)
          (json-mode . lsp-deferred)
-         (html-mode . lsp-deferred))
+         (html-mode . lsp-deferred)
+         (lsp-mode . (lambda ()
+                       (local-set-key (kbd "C-t d a") 'dap-delete-all-sessions)
+                       (local-set-key (kbd "C-t b a") 'dap-breakpoint-add)
+                       (local-set-key (kbd "C-t b d") 'dap-breakpoint-delete)
+                       (local-set-key (kbd "C-t b r") 'dap-breakpoint-delete-all)
+                       (local-set-key (kbd "C-t r") 'dap-debug-last)))
+         (java-mode . (lambda ()
+                        (local-set-key (kbd "C-t x r") 'dap-java-run-last-test)
+                        (local-set-key (kbd "C-t x u") 'dap-java-run-test-method)
+                        (local-set-key (kbd "C-t x c") 'dap-java-run-test-class)
+                        (local-set-key (kbd "C-t u") 'dap-java-debug-test-method)
+                        (local-set-key (kbd "C-t c") 'dap-java-debug-test-class))))
+
   :config
   ;; add paths to your local installation of project mgmt tools, like lein
-  (global-set-key (kbd "C-/") 'lsp-ui-peek-find-references)
-  (global-set-key (kbd "C-i") 'lsp-ui-peek-find-implementation)
   
   (setq lsp-clojure-server-command '("bash" "-c" "/usr/local/Cellar/clojure-lsp-native/2021.08.24-14.41.56/bin/clojure-lsp"))
   ) ;; Optional: In case `clojure-lsp` is not in your $PATH
 (use-package lsp-java :ensure t
-  :config (add-hook 'java-mode-hook 'lsp-deferred)
-          (add-hook 'java-mode-hook 'lsp-java-boot-lens-mode)
-          (add-hook 'conf-javaprop-mode-hook 'lsp-deferred)
-          (define-prefix-command 'dap-java-map)
-          (global-set-key (kbd "C-c t") 'dap-java-map)
-          (global-set-key (kbd "C-c t u") 'dap-java-debug-test-method)
-          (global-set-key (kbd "C-c t c") 'dap-java-debug-test-class)
-          (global-set-key (kbd "C-c t a") 'dap-debug-last)
-          )
+  :config
+  (add-hook 'java-mode-hook 'lsp-deferred)
+  (add-hook 'java-mode-hook
+            (lambda ()
+              (local-set-key (kbd "C-t u") 'dap-java-debug-test-method)
+              (local-set-key (kbd "C-t c") 'dap-java-debug-test-class)))
+  (add-hook 'java-mode-hook 'lsp-java-boot-lens-mode)
+  (add-hook 'conf-javaprop-mode-hook 'lsp-deferred))
 (require 'lsp-java-boot)
 ;; (setq lsp-java-vmargs '("-noverify" "-XX:+UseG1GC" "-XX:+UseStringDeduplication" "-XX:+UseParallelGC" "-XX:GCTimeRatio=4" "-XX:AdaptiveSizePolicyWeight=90" "-Dsun.zip.disableMemoryMapping=true" "-Xmx2G" "-Xms1G"
 (setq lsp-java-vmargs '("-noverify" "-Xmx2G" "-XX:+UseG1GC" "-XX:+UseStringDeduplication" "-javaagent:/Users/josh/.emacs.d/lsp/lombok-1.18.20.jar"))
@@ -52,8 +67,19 @@
 
 (use-package jest
   :ensure t
-  :hook ((typescript-mode . jest-test-mode))
-        ((js2-mode . jest-test-mode)))
+
+  :after
+  (js2-mode)
+
+  :hook
+  (typescript-mode . jest-minor-mode)
+  (js2-mode . jest-minor-mode)
+
+  :config
+  (local-set-key (kbd "C-t u") 'jest-function)
+  (local-set-key (kbd "C-t f") 'jest-file)
+  (local-set-key (kbd "C-t s") 'jest-file-dwim)
+  (local-set-key (kbd "C-t r") 'jest-repeat))
 (use-package company
   :ensure t
   :init
