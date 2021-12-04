@@ -1,5 +1,7 @@
 (use-package clojure-mode :ensure t)
-(use-package typescript-mode :ensure t)
+(use-package typescript-mode
+  :ensure t
+  :hook ((typescript-mode . js2-minor-mode)))
 (use-package js2-mode :ensure t)
 (use-package json-mode :ensure t)
 (use-package cider :ensure t)

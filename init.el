@@ -11,7 +11,6 @@
 
 (require 'required-packages)
 (require 'sql-connection)
-(require 'custom-function)
 
 
 (custom-set-variables
