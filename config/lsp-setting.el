@@ -14,7 +14,6 @@
 (use-package lsp-mode
   :ensure t
   :hook ((lsp-mode . lsp-enable-which-key-integration)
-         ;; (lsp-mode . (lambda () (push 'company-yasnippet company-backends)))
          (clojure-mode . lsp-deferred)
          (clojurec-mode . lsp-deferred)
          (clojurescript-mode . lsp-deferred)
@@ -51,9 +50,10 @@
     (add-to-list 'lsp-disabled-clients 'pyls)
     (add-to-list 'lsp-enabled-clients 'jedi)))
 
-(use-package jest-test-mode
+(use-package jest
   :ensure t
-  :hook ((typescript-mode . jest-test-mode)))
+  :hook ((typescript-mode . jest-test-mode))
+        ((js2-mode . jest-test-mode)))
 (use-package company
   :ensure t
   :init
