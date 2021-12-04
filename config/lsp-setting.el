@@ -1,4 +1,23 @@
-(push (expand-file-name "~/.emacs.d/config/lsp") load-path)
+(push (expand-file-name "~/.emacs.d/config/lsp-config") load-path)
+
+(define-prefix-command 'dap-mode-map)
+(global-set-key (kbd "C-t") 'dap-mode-map)
+(local-set-key (kbd "C-/") 'lsp-ui-peek-find-references)
+(local-set-key (kbd "C-i") 'lsp-ui-peek-find-implementation)
+
+(condition-case nil
+    (require 'java-setting)
+  (error (lsp-log "Failed to init lsp java for %s: message" (error-message-string error))))
+(condition-case nil
+    (require 'clojure-setting)
+  (error nil))
+(condition-case nil
+(require 'js-setting)
+  (error (lsp-log "Failed to init js for %s: message" (error-message-string error))))
+(condition-case nil
+(require 'default-projectile)
+  (error (lsp-log "Failed to init projectile for %s: message" (error-message-string error))))
+
 
 (use-package yasnippet :ensure t)
 (use-package counsel :ensure t)
@@ -11,75 +30,18 @@
 ;;                      (company-dabbrev-code company-gtags company-etags company-keywords)
 ;;                      company-oddmuse company-dabbrev))
 
-  (define-prefix-command 'dap-mode-map)
-  (global-set-key (kbd "C-t") 'dap-mode-map)
-  (local-set-key (kbd "C-/") 'lsp-ui-peek-find-references)
-  (local-set-key (kbd "C-i") 'lsp-ui-peek-find-implementation)
-
 (use-package lsp-mode
   :ensure t
   :hook ((lsp-mode . lsp-enable-which-key-integration)
-         (clojure-mode . lsp-deferred)
-         (clojurec-mode . lsp-deferred)
-         (clojurescript-mode . lsp-deferred)
          (python-mode . lsp-deferred)
-         (typescript-mode . lsp-deferred)
-         (js2-mode . lsp-deferred)
-         (json-mode . lsp-deferred)
          (html-mode . lsp-deferred)
          (lsp-mode . (lambda ()
                        (local-set-key (kbd "C-t d a") 'dap-delete-all-sessions)
                        (local-set-key (kbd "C-t b a") 'dap-breakpoint-add)
                        (local-set-key (kbd "C-t b d") 'dap-breakpoint-delete)
                        (local-set-key (kbd "C-t b r") 'dap-breakpoint-delete-all)
-                       (local-set-key (kbd "C-t r") 'dap-debug-last)))
-         (java-mode . (lambda ()
-                        (local-set-key (kbd "C-t x r") 'dap-java-run-last-test)
-                        (local-set-key (kbd "C-t x u") 'dap-java-run-test-method)
-                        (local-set-key (kbd "C-t x c") 'dap-java-run-test-class)
-                        (local-set-key (kbd "C-t u") 'dap-java-debug-test-method)
-                        (local-set-key (kbd "C-t c") 'dap-java-debug-test-class))))
+                       (local-set-key (kbd "C-t r") 'dap-debug-last)))))
 
-  :config
-  ;; add paths to your local installation of project mgmt tools, like lein
-  
-  (setq lsp-clojure-server-command '("bash" "-c" "/usr/local/Cellar/clojure-lsp-native/2021.08.24-14.41.56/bin/clojure-lsp"))
-  ) ;; Optional: In case `clojure-lsp` is not in your $PATH
-(use-package lsp-java :ensure t
-  :config
-  (add-hook 'java-mode-hook 'lsp-deferred)
-  (add-hook 'java-mode-hook
-            (lambda ()
-              (local-set-key (kbd "C-t u") 'dap-java-debug-test-method)
-              (local-set-key (kbd "C-t c") 'dap-java-debug-test-class)))
-  (add-hook 'java-mode-hook 'lsp-java-boot-lens-mode)
-  (add-hook 'conf-javaprop-mode-hook 'lsp-deferred))
-(require 'lsp-java-boot)
-;; (setq lsp-java-vmargs '("-noverify" "-XX:+UseG1GC" "-XX:+UseStringDeduplication" "-XX:+UseParallelGC" "-XX:GCTimeRatio=4" "-XX:AdaptiveSizePolicyWeight=90" "-Dsun.zip.disableMemoryMapping=true" "-Xmx2G" "-Xms1G"
-(setq lsp-java-vmargs '("-noverify" "-Xmx2G" "-XX:+UseG1GC" "-XX:+UseStringDeduplication" "-javaagent:/Users/josh/.emacs.d/lsp/lombok-1.18.20.jar"))
-
-(use-package lsp-jedi
-  :ensure t
-  :config
-  (with-eval-after-load "python-mode"
-    (add-to-list 'lsp-disabled-clients 'pyls)
-    (add-to-list 'lsp-enabled-clients 'jedi)))
-
-(use-package jest
-  :ensure t
-
-  :after
-  (js2-mode)
-
-  :hook
-  (typescript-mode . jest-minor-mode)
-  (js2-mode . jest-minor-mode)
-
-  :config
-  (local-set-key (kbd "C-t u") 'jest-function)
-  (local-set-key (kbd "C-t f") 'jest-file)
-  (local-set-key (kbd "C-t s") 'jest-file-dwim)
-  (local-set-key (kbd "C-t r") 'jest-repeat))
 (use-package company
   :ensure t
   :init
@@ -87,14 +49,6 @@
   :config
   (setq company-idle-delay 0)
   (setq company-show-numbers "on"))
-
-(use-package projectile
-  :ensure t
-  :init
-  (projectile-mode +1)
-  :bind (:map projectile-mode-map
-              ("s-p" . projectile-command-map)
-              ("C-c p" . projectile-command-map)))
 
 (setq gc-cons-threshold (* 100 1024 1024)
       read-process-output-max (* 1024 1024)
@@ -124,7 +78,6 @@
 (use-package which-key :ensure t :config (which-key-mode))
 (use-package restclient :ensure t)
 (use-package magit :ensure t)
-(require 'default-projectile)
 
 ;;  end of file
 (provide 'lsp-setting)

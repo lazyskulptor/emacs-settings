@@ -1,6 +1,5 @@
 (push (expand-file-name "~/.emacs.d/config") load-path)
 
-(require 'lang-modes)
 (require 'use-package)
 (require 'lsp-setting)
 (require 'evil-setting)
