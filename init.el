@@ -11,8 +11,6 @@
 
 (require 'required-packages)
 (require 'sql-connection)
-(require 'aweshell)
-(require 'custom-function)
 
 
 (custom-set-variables
@@ -21,7 +19,7 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(custom-safe-themes
-   '("3b8284e207ff93dfc5e5ada8b7b00a3305351a3fb222782d8033a400a48eca48" default))
+   '("583148e87f779040b5349db48b6fcad6fe9a873c6ada20487e9a1ec40d845505" "3b8284e207ff93dfc5e5ada8b7b00a3305351a3fb222782d8033a400a48eca48" default))
  '(package-selected-packages
    '(sqlformat zenburn-theme undo-fu-session undo-fu exec-path-from-shell session use-package))
  '(session-use-package t nil (session)))

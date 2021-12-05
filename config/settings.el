@@ -5,6 +5,8 @@
 (setq default-input-method "korean-hangul")
 (global-set-key (kbd "<M-f4>") 'toggle-input-method)
 
+;; (setq tab-always-indent 'complete)
+(global-set-key (kbd "S-SPC") 'company-complete)
 (global-set-key (kbd "M-1") 'projectile-run-async-shell-command-in-root)
 (global-set-key (kbd "M-2") 'flycheck-next-error)
 (global-set-key (kbd "s-n") 'make-frame-on-monitor)
@@ -39,7 +41,7 @@
 (toggle-scroll-bar -1) 
 (tool-bar-mode -1) 
 
-(set-face-attribute 'default nil :height 160)
+(set-face-attribute 'default nil :height 145)
 (show-paren-mode 1)
 (yas-global-mode 1)
 
