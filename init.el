@@ -35,4 +35,5 @@
 (setq backup-directory-alist 
   '(("." . "~/.emacs.d/file-backups")))
 
+(add-to-list 'custom-theme-load-path "~/.emacs.d/themes/")
 (load-theme 'zenburn)
