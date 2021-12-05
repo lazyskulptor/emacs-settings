@@ -12,7 +12,7 @@
   (js2-mode)
 
   :hook
-  (typescript-mode . jest-minor-mode)
+  (js2-minor-mode . jest-minor-mode)
   (js2-mode . jest-minor-mode)
 
   :config
