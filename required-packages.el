@@ -16,6 +16,7 @@
   :ensure t
   :init (add-hook 'after-init-hook 'global-undo-fu-session-mode)
   :config (setq undo-fu-session-incompatible-files '("/COMMIT_EDITMSG\\'" "/git-rebase-todo\\'")))
+(use-package sqlformat :ensure t)
 
 
 ;;  end of file

@@ -19,6 +19,7 @@
   (local-set-key (kbd "C-t u") 'jest-function)
   (local-set-key (kbd "C-t f") 'jest-file)
   (local-set-key (kbd "C-t s") 'jest-file-dwim)
+  (local-set-key (kbd "C-t a") 'jest-repeat)
   (local-set-key (kbd "C-t r") 'jest-repeat))
 
 (use-package yaml-mode
