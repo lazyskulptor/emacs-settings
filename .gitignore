@@ -1,2 +1,3 @@
 init.el
 snippets/
+config/sql-connection.el
