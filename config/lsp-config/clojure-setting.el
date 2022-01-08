@@ -5,7 +5,7 @@
    (clojurec-mode . lsp-deferred)
    (clojurescript-mode . lsp-deferred))
   :config
-  (setq lsp-clojure-server-command '("bash" "-c" "/usr/local/Cellar/clojure-lsp-native/2021.08.24-14.41.56/bin/clojure-lsp")))
+  (setq lsp-clojure-server-command '("bash" "-c" "/usr/local/Cellar/clojure-lsp-native/2021.12.20-00.36.56/bin/clojure-lsp")))
 (use-package cider :ensure t)
 (add-hook 'clojure-mode-hook
           (lambda ()
