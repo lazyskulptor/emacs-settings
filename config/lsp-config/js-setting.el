@@ -3,8 +3,9 @@
 (use-package typescript-mode
   :ensure t
   :hook ((typescript-mode . lsp-deferred)
-         (typescript-mode . js2-minor-mode)
-         ))
+         (typescript-mode . js2-minor-mode))
+  :config
+  (setq js2-mode-show-parse-errors 2))
 (use-package jest
   :ensure t
 
