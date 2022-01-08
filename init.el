@@ -10,7 +10,6 @@
 (load "~/.emacs.d/required-packages")
 
 (require 'required-packages)
-(require 'sql-connection)
 
 
 (custom-set-variables
