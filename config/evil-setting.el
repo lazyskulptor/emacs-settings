@@ -40,6 +40,7 @@
   (define-key evil-normal-state-map (kbd "C-r") 'undo-fu-only-redo)
   (define-key evil-normal-state-map (kbd "C-c +") 'evil-numbers/inc-at-pt)
   (define-key evil-normal-state-map (kbd "C-c -") 'evil-numbers/dec-at-pt)
+  (evil-select-search-module 'evil-search-module 'evil-search)
   )
 
 (provide 'evil-setting)
