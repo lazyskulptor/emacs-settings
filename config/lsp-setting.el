@@ -66,6 +66,7 @@
 (add-to-list 'auto-mode-alist '("\\.http\\'" . restclient-mode))
 (add-to-list 'auto-mode-alist '("\\.jsp\\.html\\'" . html-mode))
 (add-to-list 'auto-mode-alist '("\\.jsp\\.html\\'" . web-mode))
+(add-to-list 'auto-mode-alist '("\\.yml\\'" . yaml-mode))
 
 (use-package flycheck :ensure t)
 (use-package hydra :ensure t)
