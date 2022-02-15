@@ -20,4 +20,10 @@
 				  :run "./gradlew bootRun"
                                   :test-suffix "Tests")
 
+(projectile-register-project-type 'npm '("package.json")
+                                  :project-file "package.json"
+                                  :src-dir "src/"
+                                  :test-dir "__tests__/"
+                                  :test-suffix ".spec")
+
 (provide 'default-projectile)

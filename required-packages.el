@@ -3,6 +3,7 @@
 (require 'use-package)
 (require 'lsp-setting)
 (require 'evil-setting)
+(require 'slack-setting)
 (require 'settings)
 
 (use-package session :ensure t :init (add-hook 'after-init-hook 'session-initialize))
@@ -17,7 +18,6 @@
   :init (add-hook 'after-init-hook 'global-undo-fu-session-mode)
   :config (setq undo-fu-session-incompatible-files '("/COMMIT_EDITMSG\\'" "/git-rebase-todo\\'")))
 (use-package sqlformat :ensure t)
-
 
 ;;  end of file
 (provide 'required-packages)
