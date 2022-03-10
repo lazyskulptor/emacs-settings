@@ -35,6 +35,7 @@
   :hook ((lsp-mode . lsp-enable-which-key-integration)
          (python-mode . lsp-deferred)
          (html-mode . lsp-deferred)
+         (yaml-mode . lsp-deferred)
          (lsp-mode . (lambda ()
                        (local-set-key (kbd "C-t d a") 'dap-delete-all-sessions)
                        (local-set-key (kbd "C-t b a") 'dap-breakpoint-add)

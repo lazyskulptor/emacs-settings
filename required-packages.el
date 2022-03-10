@@ -1,10 +1,13 @@
 (push (expand-file-name "~/.emacs.d/config") load-path)
+(push (expand-file-name "~/.emacs.d/custom") load-path)
 
 (require 'use-package)
 (require 'lsp-setting)
 (require 'evil-setting)
 (require 'slack-setting)
 (require 'settings)
+(require 'load-files)
+(require 'sql-connections)
 
 (use-package session :ensure t :init (add-hook 'after-init-hook 'session-initialize))
 (use-package exec-path-from-shell 
