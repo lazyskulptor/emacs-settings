@@ -21,9 +21,10 @@
   (define-key evil-window-map "O" 'delete-other-frames)
   (define-key evil-window-map "q" nil)
   
-  (evil-set-initial-state 'calendar-mode 'emacs)
-  (evil-set-initial-state 'Buffer-menu-mode 'emacs)
-  (evil-set-initial-state 'magit-popup-mode 'emacs)
+  (evil-set-initial-state 'calendar-mode 'insert)
+  (evil-set-initial-state 'Buffer-menu-mode 'insert)
+  (evil-set-initial-state 'magit-popup-mode 'insert)
+  (evil-set-initial-state 'eaf-mode 'insert)
   (evil-mode)
 
   (define-key evil-insert-state-map (kbd "C-w") evil-window-map)
