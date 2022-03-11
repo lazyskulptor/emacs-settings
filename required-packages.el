@@ -1,6 +1,9 @@
 (push (expand-file-name "~/.emacs.d/config") load-path)
 (push (expand-file-name "~/.emacs.d/custom") load-path)
+(push (expand-file-name "~/.emacs.d/custom/autopair") load-path)
+(add-to-list 'exec-path "/usr/local/opt/mysql-client/bin")
 
+(require 'autopair)
 (require 'use-package)
 (require 'lsp-setting)
 (require 'evil-setting)

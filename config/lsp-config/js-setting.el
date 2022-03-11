@@ -22,6 +22,7 @@
 ;;   (local-set-key (kbd "C-t s") 'jest-file-dwim)
 ;;   (local-set-key (kbd "C-t a") 'jest-repeat)
 ;;   (local-set-key (kbd "C-t r") 'jest-repeat))
+(add-to-list 'auto-mode-alist '("\\.js\\'" . js2-mode))
 
 (use-package yaml-mode
   :ensure t
