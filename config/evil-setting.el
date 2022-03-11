@@ -24,7 +24,6 @@
   (evil-set-initial-state 'calendar-mode 'insert)
   (evil-set-initial-state 'Buffer-menu-mode 'insert)
   (evil-set-initial-state 'magit-popup-mode 'insert)
-  (evil-set-initial-state 'eaf-mode 'insert)
   (evil-mode)
 
   (define-key evil-insert-state-map (kbd "C-w") evil-window-map)
@@ -41,6 +40,7 @@
   (define-key evil-normal-state-map (kbd "C-r") 'undo-fu-only-redo)
   (define-key evil-normal-state-map (kbd "C-c +") 'evil-numbers/inc-at-pt)
   (define-key evil-normal-state-map (kbd "C-c -") 'evil-numbers/dec-at-pt)
+  (evil-select-search-module 'evil-search-module 'evil-search)
   )
 
 (provide 'evil-setting)

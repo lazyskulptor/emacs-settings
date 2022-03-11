@@ -13,4 +13,17 @@
 				  :run "./mvnw spring-boot:run"
                                   :test-suffix "Tests")
 
+(projectile-register-project-type 'gradle '("build.gradle")
+                                  :project-file "build.gradle"
+				  :compile "./gradlew build"
+				  :test "./gradlew test"
+				  :run "./gradlew bootRun"
+                                  :test-suffix "Tests")
+
+(projectile-register-project-type 'npm '("package.json")
+                                  :project-file "package.json"
+                                  :src-dir "src/"
+                                  :test-dir "__tests__/"
+                                  :test-suffix ".spec")
+
 (provide 'default-projectile)

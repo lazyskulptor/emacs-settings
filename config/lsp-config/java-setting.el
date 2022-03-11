@@ -1,6 +1,7 @@
 (use-package lsp-java :ensure t
   :hook
   (java-mode . (lambda ()
+                        (local-set-key (kbd "C-'") 'lsp-java-open-super-implementation)
                         (local-set-key (kbd "C-t x r") 'dap-java-run-last-test)
                         (local-set-key (kbd "C-t x u") 'dap-java-run-test-method)
                         (local-set-key (kbd "C-t x c") 'dap-java-run-test-class)

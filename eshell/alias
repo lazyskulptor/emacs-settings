@@ -1,1 +1,1 @@
-alias ll ls -ltr $1
+alias ll ls -ltr $*

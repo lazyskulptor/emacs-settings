@@ -1,0 +1,3 @@
+[submodule "custom/emacs-jest"]
+	path = custom/emacs-jest
+	url = https://github.com/lazyskulptor/emacs-jest.git
