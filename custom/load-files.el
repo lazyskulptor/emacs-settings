@@ -8,6 +8,7 @@
 (add-hook 'js2-mode-hook #'jest-minor-mode)
 (add-hook 'jest-minor-mode-hook (lambda ()
                              (message "loading jest as minor")
+                             (setq jest-arguments '("--colors"))
                              (local-set-key (kbd "C-t u") 'jest-function)
                              (local-set-key (kbd "C-t f") 'jest-file)
                              (local-set-key (kbd "C-t s") 'jest-file-dwim)
