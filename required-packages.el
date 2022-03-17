@@ -1,5 +1,6 @@
 (push (expand-file-name "~/.emacs.d/config") load-path)
 (push (expand-file-name "~/.emacs.d/custom") load-path)
+(with-temp-buffer (shell-command "docker-machine env --shell emacs default" (current-buffer)) (eval-buffer))
 
 (require 'use-package)
 (require 'lsp-setting)
