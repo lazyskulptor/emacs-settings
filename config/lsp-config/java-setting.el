@@ -9,6 +9,10 @@
                         (local-set-key (kbd "C-t c") 'dap-java-debug-test-class)))
   :config
   (add-hook 'java-mode-hook 'lsp-deferred)
+  (add-hook 'java-mode-hook
+            (lambda ()
+              (local-set-key (kbd "C-t u") 'dap-java-debug-test-method)
+              (local-set-key (kbd "C-t c") 'dap-java-debug-test-class)))
   (add-hook 'java-mode-hook 'lsp-java-boot-lens-mode)
   (add-hook 'conf-javaprop-mode-hook 'lsp-deferred))
 (require 'lsp-java-boot)

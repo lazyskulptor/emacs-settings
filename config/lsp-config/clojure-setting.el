@@ -9,7 +9,10 @@
 (use-package cider :ensure t)
 (add-hook 'clojure-mode-hook
           (lambda ()
+            (autopair-mode)
             (make-local-variable 'lsp-enable-completion-at-point)
-            (setq lsp-enable-completion-at-point nil lsp-enable-indentation nil)))
+            (setq lsp-enable-completion-at-point nil
+                  lsp-enable-indentation nil
+                  cider-save-file-on-load t)))
 
 (provide 'clojure-setting)

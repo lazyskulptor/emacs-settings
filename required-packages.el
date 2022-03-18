@@ -1,7 +1,10 @@
 (push (expand-file-name "~/.emacs.d/config") load-path)
 (push (expand-file-name "~/.emacs.d/custom") load-path)
+(push (expand-file-name "~/.emacs.d/custom/autopair") load-path)
+(add-to-list 'exec-path "/usr/local/opt/mysql-client/bin")
 (with-temp-buffer (shell-command "docker-machine env --shell emacs default" (current-buffer)) (eval-buffer))
 
+(require 'autopair)
 (require 'use-package)
 (require 'lsp-setting)
 (require 'evil-setting)

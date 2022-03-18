@@ -1,5 +1,3 @@
-
-
 ;; (use-package lsp-jedi
 ;;   :ensure t
 ;;   :config

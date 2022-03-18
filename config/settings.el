@@ -61,6 +61,8 @@
       '((ivy-switch-buffer . ivy--regex-fuzzy)
         (counsel-find-file . ivy--regex-fuzzy)
         (t . ivy--regex-plus)))
+(setq lsp-eslint-enable nil)
+(setq use-dialog-box nil)
 ;; (add-to-list 'company-backends 'company-yasnippet)
 (ivy-mode 1)
 (add-hook 'sql-interactive-mode-hook '(lambda () (toggle-truncate-lines 1)))
