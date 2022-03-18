@@ -1,1 +1,4 @@
+alias docker-psf docker ps --filter volume=/data --format "table {{.ID}}\t{{.Image}}\t{{.Command}}\t{{.Status}}\t{{.Ports}}\t{{.Names}}"
+alias ff for i in ${eshell-flatten-list $*} {find-file $i}
 alias ll ls -l $*
+alias netstat netstat -anv $*

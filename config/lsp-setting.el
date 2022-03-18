@@ -48,6 +48,7 @@
   :init
   (add-hook 'after-init-hook 'global-company-mode)
   :config
+  (setq company-global-modes '(not eshell-mode))
   (setq company-idle-delay 0)
   (setq company-show-numbers "on"))
 
