@@ -1,6 +1,12 @@
+(use-package evil-collection
+  :ensure t
+  :init (setq evil-want-keybinding nil))
+
 (use-package evil-numbers :ensure t)
+
 (use-package evil
   :ensure t ;; install the evil package if not installed
+  :requires (evil-collection evil-numbers)
   :init ;; tweak evil's configuration before loading it
   (setq evil-search-module 'evil-search)
   (setq evil-ex-complete-emacs-commands nil)
@@ -10,6 +16,7 @@
   (setq-default evil-shift-width 2)
   (setq-default indent-tabs-mode nil)
   (setq evil-want-C-u-scroll t)
+  (evil-collection-init)
   :config
   ;; (evil-set-initial-state 'neotree-mode 'emacs)
   (global-set-key (kbd "C-w") 'evil-window-map)
@@ -22,8 +29,6 @@
   (define-key evil-window-map "q" nil)
   
   (evil-set-initial-state 'calendar-mode 'insert)
-  (evil-set-initial-state 'Buffer-menu-mode 'insert)
-  (evil-set-initial-state 'magit-popup-mode 'insert)
   (evil-mode)
 
   (define-key evil-insert-state-map (kbd "C-w") evil-window-map)
