@@ -52,7 +52,23 @@
 ;; Groovy
 ;; ─────────────────────────────────────────────────────────────
 
-(use-package groovy-mode :ensure t)
+(use-package groovy-mode
+  :ensure t
+  :config
+  (defun groovy-run-file ()
+    "Run current Groovy file with `groovy' command.
+Output goes to *groovy-run* buffer.
+Works with TRAMP remote files via `compile'."
+    (interactive)
+    (let* ((file (or (buffer-file-name)
+                     (error "Buffer is not visiting a file")))
+           (cmd (format "groovy \"%s\"" file)))
+      (compilation-start cmd nil
+                         (lambda (_) "*groovy-run*")))))
+
+(add-hook 'groovy-mode-hook
+          (lambda ()
+            (local-set-key (kbd "C-c C-c") 'groovy-run-file)))
 
 ;; ─────────────────────────────────────────────────────────────
 ;; Clojure (CIDER REPL)
@@ -122,6 +138,23 @@
 (add-to-list 'auto-mode-alist '("\\.yaml\\'" . yaml-ts-mode))
 (add-to-list 'auto-mode-alist '("\\.http\\'" . restclient-mode))
 (add-to-list 'auto-mode-alist '("\\.jsp\\.html\\'" . web-mode))
+
+;; ─────────────────────────────────────────────────────────────
+;; C# (.NET) 설정
+;; ─────────────────────────────────────────────────────────────
+
+(use-package csharp-mode
+  ;; :ensure t — Emacs 29부터 내장되어 있으므로 불필요 (중복 설치 경고 발생)
+  :mode "\\.cs\\'"
+  :config
+  (setq csharp-format-on-save t
+        csharp-default-indentation 4))
+
+;; csharp-ts-mode (Emacs 29+ built-in) indent 설정
+(when (fboundp 'csharp-ts-mode)
+  (add-hook 'csharp-ts-mode-hook
+            (lambda ()
+              (setq-local csharp-ts-mode-indent-offset 4))))
 
 (provide 'languages)
 ;;; languages.el ends here
