@@ -249,13 +249,29 @@
         (delete-region (point) end)
       (error nil))))
 
+;; 2단계 TAB 완성: 첫 TAB은 공통 접두사 확장, 두 번째 TAB은 후보 삽입
+(defun my/corfu-expand-or-complete ()
+  "Try to expand common prefix first, then complete candidate.
+First TAB expands common prefix across all candidates.
+Second TAB inserts the selected candidate."
+  (interactive)
+  (if (corfu--preview-current-p)
+      ;; 후보가 선택된 상태면 바로 삽입
+      (corfu-complete)
+    ;; 공통 접두사 확장을 시도
+    (if (corfu-expand)
+        ;; 확장이 성공했으면 팝업 유지 (확장됨)
+        nil
+      ;; 확장이 실패했으면 (더 이상 확장할 공통 접두사가 없음) 후보 삽입
+      (corfu-complete))))
+
 ;; Completion wrapper 함수
 (defun my/corfu-complete-or-start ()
-  "Start completion if not active, otherwise complete."
+  "Start completion if not active, otherwise expand-or-complete."
   (interactive)
   (if (bound-and-true-p completion-in-region-mode)
-      ;; Completion이 활성화되어 있으면 corfu-complete
-      (corfu-complete)
+      ;; Completion이 활성화되어 있으면 expand-or-complete
+      (my/corfu-expand-or-complete)
     ;; Completion이 비활성화되어 있으면
     (if (bound-and-true-p lsp-bridge-mode)
         ;; lsp-bridge 모드이면 predicate 우회하여 직접 API 호출
@@ -301,11 +317,23 @@
 
 ;; Corfu 키맵
 (with-eval-after-load 'corfu
-  (define-key corfu-map (kbd "TAB") 'corfu-complete)
+  (define-key corfu-map (kbd "TAB") 'my/corfu-expand-or-complete)
   (define-key corfu-map (kbd "S-TAB") 'corfu-previous)
-  (define-key corfu-map (kbd "RET") 'eshell-send-input)
+  (define-key corfu-map (kbd "RET") 'corfu-send)
   (define-key corfu-map (kbd "C-n") 'corfu-next)
   (define-key corfu-map (kbd "C-p") 'corfu-previous))
+
+;; ── eshell corfu 우회: corfu-map 우선순위 문제 대응 ──────
+;; corfu-map이 eshell에서 RET 우선순위를 못 얻는 문제를 우회.
+;; eshell-send-input 실행 전 corfu-complete를 먼저 호출.
+(defun my/before-eshell-send (&rest _)
+  "Complete corfu candidate before sending eshell input.
+Fixes corfu-map priority issue in eshell."
+  (when (and (bound-and-true-p corfu-mode) completion-in-region--data)
+    (corfu-complete)))
+
+(advice-add 'eshell-send-input :before #'my/before-eshell-send)
+;; ──────────────────────────────────────────────────────────
 
 ;; 미니버퍼에서 명령어별 Delete 키 동작 설정
 (add-hook 'minibuffer-setup-hook

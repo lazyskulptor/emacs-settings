@@ -54,8 +54,10 @@
           (sh-mode . lsp-bridge-mode)
           (web-mode . lsp-bridge-mode)
           (emacs-lisp-mode . lsp-bridge-mode)
-          (groovy-mode . lsp-bridge-mode)
-          (lisp-interaction-mode . lsp-bridge-mode))
+           (groovy-mode . lsp-bridge-mode)
+           (lisp-interaction-mode . lsp-bridge-mode)
+           (csharp-mode . lsp-bridge-mode)
+           (csharp-ts-mode . lsp-bridge-mode))
   :config
   ;; Completion UI: corfu 사용
   (setq lsp-bridge-completion-ui 'corfu)
@@ -102,7 +104,19 @@
   ;; ── Dart/Flutter ──────────────────────────────────────────
   (setq lsp-bridge-dart-analysis-server-command
         (list (expand-file-name "bin/dart" global-dart-sdk-dir)
-              "language-server" "--client-id=emacs.lsp-bridge")))
+              "language-server" "--client-id=emacs.lsp-bridge"))
+
+  ;; ── C# / OmniSharp ────────────────────────────────────────
+  ;; LSP 서버 (기본값 "omnisharp-dotnet") — 다른 선택지:
+  ;;   "omnisharp-mono" (Mono 기반), "csharp-ls" (경량)
+  (setq lsp-bridge-csharp-lsp-server "omnisharp-dotnet")
+
+  ;; OmniSharp 실행 경로 (lsp-bridge-install-omnisharp 설치 시)
+  ;; ~/.emacs.d/.cache/omnisharp/OmniSharp
+  ;; Homebrew로 설치한 경우 대체 가능:
+  ;;   (setq lsp-bridge-omnisharp-server-command
+  ;;         (list (expand-file-name "~/.local/bin/omnisharp") "-lsp"))
+  )
 
 ;; ─────────────────────────────────────────────────────────────
 ;; lsp-bridge-peek 자동 종료
@@ -209,6 +223,11 @@ No disk files are created."
 (advice-add 'lsp-bridge-jump-to-file :around #'my/lsp-bridge-jump-advice)
 
 
+
+;; ── acm-mode-map에 C-s 바인딩 추가 ─────────────────────
+;; lsp-bridge completion 팝업에서 C-s로 minibuffer 검색 모드 진입
+(with-eval-after-load 'acm
+  (define-key acm-mode-map (kbd "C-s") 'consult-completion-in-region))
 
 (provide 'lsp-bridge)
 ;;; lsp-bridge.el ends here
