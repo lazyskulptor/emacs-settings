@@ -31,7 +31,10 @@
 ;;
 ;;     ;; Flutter/Dart SDK (FVM 사용 시)
 ;;     global-flutter-sdk-dir "/Users/<username>/fvm/default"
-;;     global-dart-sdk-dir    "/Users/<username>/fvm/default/bin/cache/dart-sdk")
+;;     global-dart-sdk-dir    "/Users/<username>/fvm/default/bin/cache/dart-sdk"
+;;
+;;     ;; .NET SDK 경로 (dotnet --list-sdks로 확인)
+;;     dotnet-sdk-dir       "/usr/local/share/dotnet")
 ;;
 ;; 2. 선택사항: SQL 연결 정보 (~/.emacs.d/config/sql-connections.el)
 ;;    이 파일이 있으면 ejc-sql 패키지에서 DB 연결을 로드합니다.
@@ -55,9 +58,15 @@
  java-home-17        ""
  java-home-11        ""
  global-flutter-sdk-dir ""
- global-dart-sdk-dir    "")
+ global-dart-sdk-dir    ""
+  dotnet-sdk-dir         "")
 
 ;; Load machine-specific overrides (gitignored)
 (let ((local (expand-file-name "~/.emacs.d/properties.local.el")))
   (when (file-exists-p local)
     (load local)))
+
+;; DOTNET_ROOT: properties.local.el의 dotnet-sdk-dir 값으로 설정
+(when (and (boundp 'dotnet-sdk-dir)
+           (not (string-empty-p dotnet-sdk-dir)))
+  (setenv "DOTNET_ROOT" dotnet-sdk-dir))

@@ -12,6 +12,7 @@
   (require 'dap-codelldb)  ; Java
   (require 'dap-go)        ; Go
   (require 'dap-python)    ; Python
+  (require 'dap-netcore)   ; .NET Core (C#, F#, VB)
   (setq dap-python-debugger 'debugpy))
 
 ;; Java 모드 단축키
