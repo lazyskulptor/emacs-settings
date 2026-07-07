@@ -96,8 +96,8 @@
         (list (agent-shell-opencode-make-agent-config)))
   
   ;; 세션 복원 시 이전 메시지 표시
-  ;; 'minimal: 제목만, 'summary: 요약, 'full: 전체 리플레이
-  (setq agent-shell-session-restore-verbosity 'full)
+  ;; 'minimal: 제목만, 'first-last: 첫 메시지+마지막 응답, 'full: 전체 리플레이
+  (setq agent-shell-session-restore-verbosity 'first-last)
   
   ;; Evil 모드 설정
   (with-eval-after-load 'evil
@@ -292,6 +292,73 @@
 ;; opencode ACP 명령어는 위에서 SSH 경유로 설정됨 (183번 라인 참조)
 ;; 원격 실행 시 --print-logs, --log-level 옵션은 stderr를 증가시켜
 ;; ACP 프로토콜 파싱을 방해할 수 있으므로 제외함
+
+;; ─────────────────────────────────────────────
+;; Buffer truncation: interaction(대화 턴) 단위 자동 정리
+;; ─────────────────────────────────────────────
+;; 긴 세션에서 *agent* 버퍼가 무한히 커져 undo-outer-limit 경고가
+;; 발생하는 문제를 해결. 완료된 interaction을 세어 오래된 순서대로
+;; 자동 삭제한다.
+
+(defcustom agent-shell-max-interactions 20
+  "Maximum number of interactions (turns) to keep per agent shell buffer.
+Set to nil to disable truncation entirely.
+The current (in-progress) interaction is never deleted."
+  :type '(choice (integer :tag "Max interactions")
+                 (const :tag "No limit" nil))
+  :group 'agent-shell
+  :local t)
+
+(defun my-agent-shell-truncate-buffer ()
+  "Delete oldest interactions in the current agent shell buffer.
+
+Counts prompts (each prompt marks one interaction boundary) using
+`comint-prompt-regexp'.  When the count exceeds
+`agent-shell-max-interactions', removes the oldest interactions
+from the beginning of the buffer while keeping the most recent
+turn(s).
+
+This function is designed to be called from an advice on
+`shell-maker-finish-output', so it runs after every completed
+agent response."
+  (interactive)
+  (when (and (derived-mode-p 'agent-shell-mode)
+             (numberp agent-shell-max-interactions)
+             (> agent-shell-max-interactions 0))
+    (save-excursion
+      (save-restriction
+        (let ((inhibit-read-only t))
+          (goto-char (point-min))
+          (let (prompt-positions)
+            ;; Collect every prompt start position
+            (while (re-search-forward comint-prompt-regexp nil t)
+              (push (match-beginning 0) prompt-positions))
+            (setq prompt-positions (nreverse prompt-positions))
+            (let* ((count (length prompt-positions))
+                   (to-delete (- count agent-shell-max-interactions)))
+              (when (> to-delete 0)
+                ;; Delete from buffer start to the first prompt to KEEP
+                ;; This removes the oldest 'to-delete' interactions
+                ;; and any leading content (e.g. welcome message).
+                (let ((delete-end (or (nth to-delete prompt-positions)
+                                      (point-max))))
+                  (delete-region (point-min) delete-end)
+                  ;; Refresh comint-last-prompt markers so they stay valid.
+                  (when (and comint-last-prompt
+                             (markerp (car comint-last-prompt)))
+                    (set-marker (car comint-last-prompt)
+                                (max (marker-position (car comint-last-prompt))
+                                     delete-end))
+                    (set-marker (cdr comint-last-prompt)
+                                (max (marker-position (cdr comint-last-prompt))
+                                     delete-end))))))))))))
+
+;; Register truncation after every completed interaction.
+;; shell-maker-finish-output is called once per agent response,
+;; so this fires once per turn — just after the response is fully
+;; written to the buffer.
+(with-eval-after-load 'shell-maker
+  (advice-add 'shell-maker-finish-output :after #'my-agent-shell-truncate-buffer))
 
 (provide 'agent-shell-setting)
 ;;; agent-shell-setting.el ends here
