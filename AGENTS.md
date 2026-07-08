@@ -124,6 +124,25 @@ curl -o monoid.zip https://cdn.jsdelivr.net/gh/larsenwork/monoid@2db2d289f4e6101
 - **경로/환경변수**: `properties.el`에 기본값 추가, `properties.local.el`에 실제 값 설정
 - **민감한 값** (토큰, 비밀번호, DB 자격증명): `config/sql-connections.el` 또는 `properties.local.el`에만 저장 — gitignore 확인 필수
 - **`init.el` 수정 금지**: `init.el`은 `.gitignore`에 등록되어 있어 git에 반영되지 않습니다. init.el에 추가해야 할 내용은 `required-packages.el` (모듈 로드), `properties.el` (환경변수/경로 기본값), `properties.local.el` (머신별 실제 값) 파일들을 통해 관리합니다.
+- **Upstream 패키지 fork 개발**: `advice-add`로 해결 불가능한 변경(람다 클로저 내부, 매크로 확장 등)만 fork한다.
+  1. GitHub에 fork 생성 (`gh repo fork upstream/repo --clone=false`)
+  2. `~/Workspace/contribute/<repo>/`에 clone
+  3. **개발 중**에는 straight recipe에 `:local-repo`를 지정해 GitHub 경유 없이 로컬 소스 직접 사용:
+     ```elisp
+     (use-package <package>
+       :straight (<pkg> :type git :host github :repo "user/repo"
+                       :local-repo "~/Workspace/contribute/repo"))
+     ```
+  4. 로컬 수정 후 `M-x straight-rebuild-package RET <package> RET`로 즉시 반영
+  5. **배포 시** `:local-repo`를 제거하고 `:branch`로 전환:
+     ```elisp
+     (use-package <package>
+       :straight (<pkg> :type git :host github :repo "user/repo"
+                       :branch "feature-branch"))
+     ```
+  6. commit → push → `straight-pull-package`로 최종 동기화
+  - Fork repo 경로: `~/Workspace/contribute/<repo>/`
+  - Straight repo 경로: `~/.emacs.d/straight/repos/<package>/`
 
 ## MCP Server Configuration
 
