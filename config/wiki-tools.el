@@ -6,18 +6,8 @@
 (with-eval-after-load 'org
   (require 'ox-md))
 
-(defcustom wiki-dir "~/Workspace/wiki/"
-  "활성 Wiki 파일 루트 디렉토리."
-  :type 'directory)
-
-(defcustom wiki-archive-dir "~/Workspace/wiki/.archive/"
-  "아카이브된 MD 파일 디렉토리."
-  :type 'directory)
-
-(defcustom wiki-meta-dir "~/Workspace/wiki/meta/"
-  "Wiki 메타 문서 디렉토리."
-  :type 'directory)
-
+;; wiki-dir, wiki-archive-dir are defined in properties.el (setq)
+;; properties.local.el overrides for machine-specific paths
 ;; ──────────────────────────────────────────────────────────────
 ;; 1. 검증 (Validation)
 ;; ──────────────────────────────────────────────────────────────
@@ -317,6 +307,157 @@ heading이 없으면 새로 생성."
 ;; Magit 커밋 전 자동 검증 훅
 (with-eval-after-load 'magit
   (add-hook 'magit-pre-commit-hook #'wiki-pre-commit-validate))
+
+;; ──────────────────────────────────────────────────────────────
+;; 7. Journal Monthly Archive
+;; ──────────────────────────────────────────────────────────────
+(defun wiki-archive-journal-month (month)
+  "Archive YYYY-MM tasks from journal.org to roam/monthly/.
+MONTH format: \"2026-06\"
+- Finds \"* YYYY-MM Tasks\" section in journal.org
+- Checks for HOLD items → aborts if found
+- Archives section to roam/monthly/YYYYMMDDHHMMSS-monthly_YYYY-MM.org
+  including DONE logs from recurring tasks (Daily/Weekly)
+- Removes section and DONE logs from journal.org"
+  (interactive "sArchive month (YYYY-MM): ")
+  (unless (string-match-p "^[0-9]\\{4\\}-[0-9]\\{2\\}$" month)
+    (user-error "Month must be in YYYY-MM format (e.g. 2026-06)"))
+
+  (let* ((journal-path (expand-file-name "journal.org" wiki-dir))
+         (monthly-dir (expand-file-name "roam/monthly/" wiki-dir))
+         (heading-regex (format "^\\* %s " (regexp-quote month)))
+         section-text daily-lines weekly-lines)
+
+    ;; Buffer conflict check: journal.org must be saved first
+    (let ((buf (find-buffer-visiting journal-path)))
+      (when (and buf (buffer-modified-p buf))
+        (user-error "journal.org is open and modified in Emacs. Save it first.")))
+
+    ;; ── Process journal.org in temp buffer ──
+    (with-temp-buffer
+      (insert-file-contents journal-path)
+      (org-mode)
+
+      ;; Collect ALL sections matching "^\* YYYY-MM "
+      (goto-char (point-min))
+      (let (sections hold-items)
+        (while (re-search-forward heading-regex nil t)
+          (let ((heading-line (buffer-substring-no-properties
+                               (line-beginning-position) (line-end-position)))
+                (sec-start (line-beginning-position)))
+            (org-end-of-subtree t t)
+            (let ((sec-end (point)))
+              ;; Check HOLD items within this section
+              (save-excursion
+                (goto-char sec-start)
+                (while (re-search-forward "^\\*\\{2,\\} HOLD " sec-end t)
+                  (push (list heading-line
+                              (buffer-substring-no-properties
+                               (line-beginning-position) (line-end-position))
+                              (line-number-at-pos))
+                        hold-items)))
+              ;; Store section info
+              (push (list sec-start sec-end
+                          (buffer-substring-no-properties sec-start sec-end))
+                    sections))))
+        ;; All-or-nothing: any HOLD → abort entire operation
+        (when hold-items
+          (let ((msg (format "HOLD items found in %s:\n" month)))
+            (dolist (item (nreverse hold-items))
+              (setq msg (concat msg
+                                (format "  %s (line %d): %s\n"
+                                        (nth 0 item) (nth 2 item) (nth 1 item)))))
+            (user-error msg)))
+        ;; No sections found at all
+        (unless sections
+          (user-error "Month '%s' section not found in journal.org" month))
+        ;; Delete sections bottom-up to preserve positions
+        (dolist (sec sections)   ; sections is bottom-up (push order)
+          (delete-region (car sec) (cadr sec)))
+        ;; Build archive content (top-to-bottom order)
+        (setq section-text
+              (string-join
+               (mapcar (lambda (s) (nth 2 s)) (nreverse sections))
+               "\n")))
+
+      ;; ── Extract Daily Recurring Tasks DONE logs ──
+      (goto-char (point-min))
+      (when (re-search-forward "^\\*+ TODO Daily Recurring Tasks" nil t)
+        (let ((dr-start (line-beginning-position)))
+          (org-end-of-subtree t t)
+          (let ((dr-end (point))
+                (positions '()))
+            (goto-char dr-start)
+            (while (re-search-forward
+                    (format "^\\s-*- State \"DONE\".*\\[%s-\\([0-9]\\{2\\} [A-Za-z]\\{3\\} [0-9]\\{2\\}:[0-9]\\{2\\}\\)\\]"
+                            (regexp-quote month))
+                    dr-end t)
+              (let ((start (line-beginning-position)))
+                (forward-line 1)
+                (push (cons start (point)) positions)
+                (push (match-string 1) daily-lines)))
+            ;; Delete lines bottom-up to preserve positions
+            (dolist (p positions)
+              (delete-region (car p) (cdr p))))))
+
+      ;; ── Extract Weekly Reccurring Tasks DONE logs ──
+      (goto-char (point-min))
+      (when (re-search-forward "^\\*+ Weekly Reccurring Tasks" nil t)
+        (let ((wr-start (line-beginning-position)))
+          (org-end-of-subtree t t)
+          (let ((wr-end (point)))
+            (goto-char wr-start)
+            (when (re-search-forward "^\\*\\{2,\\} TODO 주간일지 작성" wr-end t)
+              (let ((wj-start (line-beginning-position)))
+                (org-end-of-subtree t t)
+                (let ((wj-end (point))
+                      (positions '()))
+                  (goto-char wj-start)
+                  (while (re-search-forward
+                          (format "^\\s-*- State \"DONE\".*\\[%s-\\([0-9]\\{2\\} [A-Za-z]\\{3\\} [0-9]\\{2\\}:[0-9]\\{2\\}\\)\\]"
+                                  (regexp-quote month))
+                          wj-end t)
+                    (let ((start (line-beginning-position)))
+                      (forward-line 1)
+                      (push (cons start (point)) positions)
+                      (push (match-string 1) weekly-lines)))
+                  (dolist (p positions)
+                    (delete-region (car p) (cdr p))))))))
+
+      ;; Save modified journal.org
+      (write-region (point-min) (point-max) journal-path nil 'silent))
+
+    ;; ── Create archive file ──
+    (make-directory monthly-dir t)
+    (let* ((timestamp (format-time-string "%Y%m%d%H%M%S"))
+           (archive-name (format "%s-monthly_%s.org" timestamp month))
+           (archive-path (expand-file-name archive-name monthly-dir)))
+      (with-temp-file archive-path
+        ;; YYYY-MM Tasks section (as-is)
+        (insert section-text)
+        ;; Recurring Task Logs (DONE → heading + CLOSED)
+        (when (or daily-lines weekly-lines)
+          (insert (format "\n* %s Recurring Task Logs\n" month))
+          (when daily-lines
+            (insert "** Daily Recurring Tasks\n")
+            (dolist (ts (nreverse daily-lines))
+              (insert (format "*** DONE [%s-%s]\n    CLOSED: [%s-%s]\n"
+                              month ts month ts))))
+          (when weekly-lines
+            (insert "** Weekly Reccurring Tasks\n")
+            (insert "*** 주간일지 작성\n")
+            (dolist (ts (nreverse weekly-lines))
+              (insert (format "**** DONE [%s-%s]\n     CLOSED: [%s-%s]\n"
+                              month ts month ts))))))
+
+      ;; Sync org-roam DB (optional)
+      (ignore-errors
+        (when (fboundp 'org-roam-db-sync)
+          (org-roam-db-sync)))
+
+      (message "✅ Archived %s → %s" month archive-name)))))
+
+
 
 (provide 'wiki-tools)
 ;;; wiki-tools.el ends here

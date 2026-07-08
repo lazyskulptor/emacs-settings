@@ -48,7 +48,7 @@ Each file ends with `(provide '<module-name>)` and is loaded via `(require ...)`
 ### Key Design Patterns
 
 - All packages managed declaratively via `use-package`
-- SDK/tool paths are centralised in `properties.el` with defaults; machine-specific values go in `properties.local.el` (gitignored) — config modules reference these variables, never hardcode paths directly
+- SDK/tool/wiki paths are centralised in `properties.el` with defaults; machine-specific values go in `properties.local.el` (gitignored) — config modules reference these variables, never hardcode paths directly
 - SQL connection credentials live in `config/sql-connections.el` (gitignored, optional)
 - eshell built-in aliases (`eshell/ll`, `eshell/la`)는 `eshell-config.el`에서 정의
 
@@ -137,6 +137,14 @@ This repository was originally configured for Claude Code. The `CLAUDE.md` file 
 - When suggesting changes, consider Emacs Lisp best practices
 - All files follow the `(provide '<module-name>)` pattern at the end
 - Test changes by evaluating the buffer with `M-x eval-buffer`
+
+## Issue Management on GitHub
+
+이슈 생성/조회/관리를 요청받으면 아래 GitHub 저장소를 사용합니다:
+
+- **Repository**: `lazyskulptor/emacs-settings` (`https://github.com/lazyskulptor/emacs-settings`)
+- **CLI**: `gh issue` 명령어 사용
+- `config/remote.el` 등 머신별 path 변수의 `properties.el` 이관 작업은 별도 이슈로 추적 중
 
 ## Testing Changes
 
