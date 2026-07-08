@@ -309,7 +309,7 @@ The current (in-progress) interaction is never deleted."
   :group 'agent-shell
   :local t)
 
-(defun my-agent-shell-truncate-buffer ()
+(defun my-agent-shell-truncate-buffer (&rest _)
   "Delete oldest interactions in the current agent shell buffer.
 
 Counts prompts (each prompt marks one interaction boundary) using
