@@ -1,0 +1,16 @@
+[project]
+name = "emacs-deps"
+version = "0.1.0"
+description = "Emacs lsp-bridge 및 LSP 도구 Python 의존성"
+requires-python = ">=3.10"
+dependencies = [
+    "epc",
+    "sexpdata",
+    "watchdog",
+    "orjson",
+    "basedpyright",
+    "debugpy",
+    "grip",
+    "six",
+    "packaging",
+]

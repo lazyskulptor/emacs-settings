@@ -3,6 +3,9 @@
 (let ((local-bin (expand-file-name "~/.local/bin")))
   (setenv "PATH" (concat local-bin ":" (getenv "PATH")))
   (add-to-list 'exec-path local-bin))
+;; NOTE: .emacs.d/.venv/bin과 .emacs.d/node_modules/.bin은 여기서 등록하지 않음.
+;; interface.el의 exec-path-from-shell이 PATH를 login shell 환경으로 덮어씀.
+;; 대신 lsp-bridge.el의 idle-timer bootstrap이 추가함 (exec-path-from-shell 이후 실행).
 
 (setenv "LANG" "ko_KR.UTF-8")
 (setenv "LC_ALL" "ko_KR.UTF-8")

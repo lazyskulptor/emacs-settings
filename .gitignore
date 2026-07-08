@@ -46,3 +46,9 @@ straight/
 *.el~
 .extension/
 ede-projects.el
+
+# Python venv (pyproject.toml + uv sync)
+.venv/
+
+# Node packages (package.json + npm install)
+node_modules/

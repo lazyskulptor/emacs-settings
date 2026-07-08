@@ -70,5 +70,14 @@
     (when (and choice (not (string-empty-p choice)))
       (kill-new choice))))
 
+;; ─────────────────────────────────────────────────────────────
+;; Emacs config base directory
+;; ─────────────────────────────────────────────────────────────
+;; NOTE: 머신 비의존 고정 경로. 외부 SDK/tool/wiki 경로는 properties.el에 정의.
+;; 확장자: 모듈에서 특정 SDK/도구를 참조할 때에는 properties.el의 변수를 사용.
+
+(defconst my/emacs-dir (expand-file-name "~/.emacs.d")
+  "Base directory for Emacs configuration.")
+
 (provide 'utils)
 ;;; utils.el ends here

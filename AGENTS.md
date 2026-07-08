@@ -69,11 +69,14 @@ Each file ends with `(provide '<module-name>)` and is loaded via `(require ...)`
 ## External Dependencies
 
 ```sh
-# JavaScript/TypeScript
-npm install -g typescript typescript-language-server eslint
+# 관리형 의존성 — .emacs.d/pyproject.toml + .emacs.d/package.json
+#   Python (epc, sexpdata, watchdog, orjson, pyright, debugpy, grip)
+#   Node  (typescript-language-server, yaml-language-server, bash-language-server,
+#          vscode-langservers-extracted, groovy-language-server, eslint)
+#   uv sync --directory ~/.emacs.d && npm install --prefix ~/.emacs.d
 
 # Clojure
-brew install w3m clojure-lsp
+brew install clojure-lsp
 
 # Go
 go install golang.org/x/tools/gopls@latest
@@ -81,10 +84,8 @@ go install github.com/go-delve/delve/cmd/dlv@latest
 go install github.com/fatih/gomodifytags@latest
 go install github.com/josharian/impl@latest
 
-# Python
+# Python (CLI만 — 패키지는 pyproject.toml이 관리)
 curl -LsSf https://astral.sh/uv/install.sh | sh
-uv tool install pyright
-pip install debugpy
 ```
 
 Other implicit dependencies: JDK (for Eclipse JDT.LS), Flutter/FVM.
@@ -99,8 +100,8 @@ curl -o monoid.zip https://cdn.jsdelivr.net/gh/larsenwork/monoid@2db2d289f4e6101
 ### Python (`config/ide/languages.el`)
 - `.venv`가 없으면 uv로 자동 생성, `pyproject.toml`이 있으면 `uv sync`까지 실행
 - direnv 연동: 프로젝트 루트에 `.envrc` (`source .venv/bin/activate`) + `M-x envrc-allow`
-- 단축키: `C-c r r` (파일 실행), `C-c r f` (ruff format), `C-c r l` (ruff fix), `C-c t t/f/p` (pytest)
 - 디버깅: `dap-debug → Python :: Run file` 첫 실행, 이후 `C-t r`
+- ruff/pytest 단축키: 별도 이슈(#13)로 추적 중
 
 ### Go (`config/ide/languages.el`)
 - 저장 시 `gofmt` + import 자동 정리
