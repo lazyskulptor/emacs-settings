@@ -13,7 +13,9 @@
   (require 'dap-go)        ; Go
   (require 'dap-python)    ; Python
   (require 'dap-netcore)   ; .NET Core (C#, F#, VB)
-  (setq dap-python-debugger 'debugpy))
+  (setq dap-python-debugger 'debugpy)
+  ;; debugpy from .venv/bin/python (managed by pyproject.toml)
+  (setq dap-python-executable (concat my/emacs-dir "/.venv/bin/python")))
 
 ;; Java 모드 단축키
 (add-hook 'java-mode-hook

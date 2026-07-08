@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "dependencies": {
+    "typescript": "^5",
+    "typescript-language-server": "^4",
+    "vscode-langservers-extracted": "^4",
+    "bash-language-server": "^5",
+    "yaml-language-server": "^1",
+    "eslint": "^9"
+  }
+}

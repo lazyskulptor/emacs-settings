@@ -10,7 +10,7 @@
 ;; Tree-sitter grammar 로드 경로
 ;; ─────────────────────────────────────────────────────────────
 
-(add-to-list 'treesit-extra-load-path (expand-file-name "~/.emacs.d/tree-sitter/"))
+(add-to-list 'treesit-extra-load-path (concat my/emacs-dir "/tree-sitter/"))
 
 ;; ─────────────────────────────────────────────────────────────
 ;; lsp-bridge 설치
@@ -26,8 +26,16 @@
              :build (:not native-compile))
   :init
   (setq lsp-bridge-enable-with-tramp t)  ; TRAMP 지원 활성화
-  (setq lsp-bridge-python-command (expand-file-name "~/.emacs.d/.venv/lsp-bridge/bin/python"))
-  (setq lsp-bridge-user-langserver-dir (expand-file-name "~/.emacs.d/lsp-user-config"))
+  (setq lsp-bridge-python-command (concat my/emacs-dir "/.venv/bin/python"))
+  (setq lsp-bridge-user-langserver-dir (concat my/emacs-dir "/lsp-user-config"))
+  ;; PATH/exec-path에 .venv/bin와 node_modules/.bin 즉시 등록
+  ;; (idle-timer bootstrap보다 lsp-bridge가 먼저 시작될 수 있으므로)
+  (let ((venv-bin (concat my/emacs-dir "/.venv/bin"))
+        (node-bin (concat my/emacs-dir "/node_modules/.bin")))
+    (dolist (dir (list venv-bin node-bin))
+      (unless (member dir exec-path)
+        (setenv "PATH" (concat dir ":" (getenv "PATH")))
+        (add-to-list 'exec-path dir))))
   :hook ((python-mode . lsp-bridge-mode)
          (python-ts-mode . lsp-bridge-mode)
          (go-mode . lsp-bridge-mode)
@@ -72,9 +80,11 @@
                              (lsp-bridge-call-file-api-p))
                     (lsp-bridge-breadcrumb-mode 1))))))
 
-  ;; ── Python (Pyright) ──────────────────────────────────────
+  ;; ── Python (basedpyright) ────────────────────────────────
+  ;; basedpyright-langserver from .venv/bin/ (managed by pyproject.toml)
+  (setq lsp-bridge-python-lsp-server "basedpyright")
   (setq lsp-bridge-python-multi-server-command
-        '("pyright-langserver" "--stdio"))
+        (list (concat my/emacs-dir "/.venv/bin/basedpyright-langserver") "--stdio"))
 
   ;; ── Go (gopls) ────────────────────────────────────────────
   ;; 기본값 사용 (gopls)
@@ -93,10 +103,10 @@
               "-jar"
               (car (file-expand-wildcards
                     (expand-file-name
-                     "~/.emacs.d/.cache/lsp/eclipse.jdt.ls/plugins/org.eclipse.equinox.launcher_*.jar")))
+                     (concat my/emacs-dir "/.cache/lsp/eclipse.jdt.ls/plugins/org.eclipse.equinox.launcher_*.jar"))))
               "-configuration"
               (expand-file-name
-               "~/.emacs.d/.cache/lsp/eclipse.jdt.ls/config_mac")))
+               (concat my/emacs-dir "/.cache/lsp/eclipse.jdt.ls/config_mac"))))
 
   ;; ── Clojure (clojure-lsp) ─────────────────────────────────
   (setq lsp-bridge-clojure-lsp-server-command (list "bash" "-c" clojure-lsp-path))
@@ -150,12 +160,12 @@
 ;; Java Spring Boot 설정
 ;; ─────────────────────────────────────────────────────────────
 
-(let ((boot-server-dir (expand-file-name "~/.emacs.d/.cache/lsp/eclipse.jdt.ls/boot-server")))
+(let ((boot-server-dir (concat my/emacs-dir "/.cache/lsp/eclipse.jdt.ls/boot-server")))
   (when (file-directory-p boot-server-dir)
     (setq lsp-bridge-java-jars (directory-files boot-server-dir t "\\.jar$"))))
 
 (setq lsp-bridge-java-workspace-dir
-      (expand-file-name "~/.emacs.d/.cache/lsp/eclipse.jdt.ls/workspace"))
+      (concat my/emacs-dir "/.cache/lsp/eclipse.jdt.ls/workspace"))
 
 ;; ── 디버깅 ON/OFF ────────────────────────────────────────
 (defvar my/dbg-lsp nil "디버깅: M-x my/dbg-toggle")
@@ -228,6 +238,122 @@ No disk files are created."
 ;; lsp-bridge completion 팝업에서 C-s로 minibuffer 검색 모드 진입
 (with-eval-after-load 'acm
   (define-key acm-mode-map (kbd "C-s") 'consult-completion-in-region))
+
+;; ─────────────────────────────────────────────────────────────
+;; PATH 헬퍼 (exec-path-from-shell 이후 PATH 유지 보장)
+;; ─────────────────────────────────────────────────────────────
+;; NOTE: properties.el에서 PATH를 등록해도 interface.el의 exec-path-from-shell이
+;; login shell 환경으로 덮어씀. 이 함수들은 exec-path-from-shell이 이미 실행된
+;; 이후(idle-timer) 호출되므로 PATH 변경이 유지됨.
+
+(defun my/add-dir-to-path (dir)
+  "Add DIR to `exec-path' and `PATH' if not already present."
+  (unless (member dir exec-path)
+    (setenv "PATH" (concat dir path-separator (getenv "PATH")))
+    (add-to-list 'exec-path dir)))
+
+;; ─────────────────────────────────────────────────────────────
+;; .emacs.d Python venv bootstrap (비동기)
+;; ─────────────────────────────────────────────────────────────
+
+(defun my/ensure-emacs-venv ()
+  "Ensure ~/.emacs.d/.venv exists with all Python dependencies.
+Runs 'uv sync --directory ~/.emacs.d' asynchronously if the venv is missing.
+Sets `lsp-bridge-python-command' and adds .venv/bin to PATH on success."
+  (let* ((venv-bin (concat my/emacs-dir "/.venv/bin"))
+         (venv-python (concat my/emacs-dir "/.venv/bin/python")))
+    (cond
+     ;; Case 1: venv already exists — just ensure path
+     ((file-executable-p venv-python)
+      (my/add-dir-to-path venv-bin)
+      (setq lsp-bridge-python-command venv-python))
+     ;; Case 2: uv not installed — warn
+     ((not (executable-find "uv"))
+      (warn "uv not found in PATH. Install from https://astral.sh/uv"))
+     ;; Case 3: venv missing — install asynchronously
+     (t
+      (message "uv: installing ~/.emacs.d/.venv (async)...")
+      (make-process
+       :name "uv-sync"
+       :buffer "*uv-sync*"
+       :command (list "uv" "sync" "--directory" my/emacs-dir)
+       :sentinel
+       (lambda (proc _event)
+         (when (eq (process-status proc) 'exit)
+           (if (= (process-exit-status proc) 0)
+               (progn
+                 (my/add-dir-to-path venv-bin)
+                 (setq lsp-bridge-python-command venv-python)
+                 (message "uv: ~/.emacs.d/.venv created"))
+             (warn "uv sync failed. Check *uv-sync* buffer for details")))))))))
+
+;; ─────────────────────────────────────────────────────────────
+;; .emacs.d Node deps bootstrap (비동기)
+;; ─────────────────────────────────────────────────────────────
+
+(defun my/ensure-emacs-node-deps ()
+  "Ensure ~/.emacs.d/node_modules exists with all Node dependencies.
+Runs 'npm install --prefix ~/.emacs.d' asynchronously if node_modules is missing.
+Adds node_modules/.bin to PATH on success."
+  (let* ((node-modules (concat my/emacs-dir "/node_modules"))
+         (node-bin (concat my/emacs-dir "/node_modules/.bin")))
+    (cond
+     ;; Case 1: node_modules already exists — just ensure path
+     ((file-directory-p node-modules)
+      (my/add-dir-to-path node-bin))
+     ;; Case 2: npm not installed — warn
+     ((not (executable-find "npm"))
+      (warn "npm not found in PATH. Install from https://nodejs.org"))
+     ;; Case 3: node_modules missing — install asynchronously
+     (t
+      (message "npm: installing ~/.emacs.d/node_modules (async)...")
+      (make-process
+       :name "npm-install"
+       :buffer "*npm-install*"
+       :command (list "npm" "install" "--prefix" my/emacs-dir)
+       :sentinel
+       (lambda (proc _event)
+         (when (eq (process-status proc) 'exit)
+           (if (= (process-exit-status proc) 0)
+               (progn
+                 (my/add-dir-to-path node-bin)
+                 (message "npm: ~/.emacs.d/node_modules installed"))
+             (warn "npm install failed. Check *npm-install* buffer for details")))))))))
+
+;; ─────────────────────────────────────────────────────────────
+;; Race condition guard: deps 없으면 lsp-bridge-mode 시작 차단
+;; ─────────────────────────────────────────────────────────────
+;; advice-add :before를 사용하여 mode hook recursion 방지.
+;; 설치 진행 중(프로세스 살아있음)이면 기다리라는 메시지.
+
+(defun my/lsp-bridge--check-deps-before-start (&rest _)
+  "Prevent lsp-bridge-mode if .venv or node_modules is not ready."
+  (cond
+   ((derived-mode-p 'python-mode 'python-ts-mode)
+    (let ((py (concat my/emacs-dir "/.venv/bin/python")))
+      (unless (file-executable-p py)
+        (if (process-live-p (get-process "uv-sync"))
+            (user-error "lsp-bridge: installing .venv... wait a moment and retry")
+          (user-error "lsp-bridge: .venv not found. Run uv sync --directory ~/.emacs.d")))))
+   ((derived-mode-p 'js-mode 'js-ts-mode 'typescript-mode 'typescript-ts-mode
+                    'yaml-ts-mode 'bash-mode 'sh-mode 'bash-ts-mode
+                    'json-mode 'json-ts-mode 'html-mode 'web-mode 'groovy-mode)
+    (let ((nm (concat my/emacs-dir "/node_modules")))
+      (unless (file-directory-p nm)
+        (if (process-live-p (get-process "npm-install"))
+            (user-error "lsp-bridge: installing node_modules... wait a moment and retry")
+          (user-error "lsp-bridge: node_modules not found. Run npm install --prefix ~/.emacs.d")))))))
+
+(advice-add 'lsp-bridge-mode :before #'my/lsp-bridge--check-deps-before-start)
+
+;; ─────────────────────────────────────────────────────────────
+;; 부트스트랩 실행 (idle-timer: exec-path-from-shell 이후 보장)
+;; ─────────────────────────────────────────────────────────────
+
+(run-with-idle-timer 3 nil
+  (lambda ()
+    (my/ensure-emacs-venv)
+    (my/ensure-emacs-node-deps)))
 
 (provide 'lsp-bridge)
 ;;; lsp-bridge.el ends here

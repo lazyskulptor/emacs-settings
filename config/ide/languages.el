@@ -7,6 +7,12 @@
 ;;; Code:
 
 ;; ─────────────────────────────────────────────────────────────
+;; pyvenv 패키지 (Python venv 관리)
+;; ─────────────────────────────────────────────────────────────
+
+(use-package pyvenv :ensure t)
+
+;; ─────────────────────────────────────────────────────────────
 ;; Python venv 자동 활성화 (lsp-bridge용)
 ;; ─────────────────────────────────────────────────────────────
 
@@ -28,6 +34,7 @@
         (pyvenv-activate venv-dir)))))
 
 (add-hook 'python-mode-hook #'my/python-ensure-venv-lsp-bridge)
+(add-hook 'python-ts-mode-hook #'my/python-ensure-venv-lsp-bridge)
 
 ;; ─────────────────────────────────────────────────────────────
 ;; Go 저장 시 포맷팅
