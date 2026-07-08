@@ -71,16 +71,19 @@
 ;; 12. Org 모드
 (require 'org-setting)
 
-;; 13. Slack
+;; 13. Markdown (문법 강조 + 브라우저 미리보기)
+(require 'markdown-setting)
+
+;; 14. Slack
 (require 'slack-setting)
 
-;; 14. Agent Shell
+;; 15. Agent Shell
 (require 'agent-shell-setting)
 
-;; 15. Wiki 도구 (mcp-server가 의존)
+;; 16. Wiki 도구 (mcp-server가 의존)
 (require 'wiki-tools)
 
-;; 16. MCP 서버
+;; 17. MCP 서버
 (require 'mcp-server-setting)
 
 ;;  end of file
