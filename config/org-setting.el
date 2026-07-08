@@ -50,7 +50,6 @@
 
 (require 'org-id)
 (setq org-id-method 'uuid)
-(add-hook 'org-insert-heading-hook 'org-id-get-create)
 
 (with-eval-after-load 'org
   (define-key org-mode-map (kbd "C-,") 'lsp-bridge-return-from-def))
