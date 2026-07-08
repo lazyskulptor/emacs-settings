@@ -34,7 +34,11 @@
 ;;     global-dart-sdk-dir    "/Users/<username>/fvm/default/bin/cache/dart-sdk"
 ;;
 ;;     ;; .NET SDK 경로 (dotnet --list-sdks로 확인)
-;;     dotnet-sdk-dir       "/usr/local/share/dotnet")
+;;     dotnet-sdk-dir       "/usr/local/share/dotnet"
+;;
+;;     ;; Wiki 파일 경로 (journal.org, roam/ 등)
+;;     wiki-dir             "~/Workspace/wiki/"
+;;     wiki-archive-dir     "~/Workspace/wiki/.archive/")
 ;;
 ;; 2. 선택사항: SQL 연결 정보 (~/.emacs.d/config/sql-connections.el)
 ;;    이 파일이 있으면 ejc-sql 패키지에서 DB 연결을 로드합니다.
@@ -57,9 +61,11 @@
  java-home-21        ""
  java-home-17        ""
  java-home-11        ""
- global-flutter-sdk-dir ""
- global-dart-sdk-dir    ""
-  dotnet-sdk-dir         "")
+  global-flutter-sdk-dir ""
+  global-dart-sdk-dir    ""
+  dotnet-sdk-dir         ""
+  wiki-dir             "~/Workspace/wiki/"
+  wiki-archive-dir     "~/Workspace/wiki/.archive/")
 
 ;; Load machine-specific overrides (gitignored)
 (let ((local (expand-file-name "~/.emacs.d/properties.local.el")))
