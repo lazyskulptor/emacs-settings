@@ -1,15 +1,36 @@
-;;; wiki-tools.el --- Wiki management tools (Org → MD archive, validation, AI formatting) -*- lexical-binding: t; -*-
+;;; wiki-tools.el --- Wiki management tools  -*- lexical-binding: t; -*-
 (require 'cl-lib)
-(require 'json)
 
 ;; ox-md is loaded lazily — only needed for archive export
 (with-eval-after-load 'org
   (require 'ox-md))
 
-;; wiki-dir, wiki-archive-dir are defined in properties.el (setq)
-;; properties.local.el overrides for machine-specific paths
 ;; ──────────────────────────────────────────────────────────────
-;; 1. 검증 (Validation)
+;; 0. Internal Helpers
+;; ──────────────────────────────────────────────────────────────
+(defun wiki-extract-title (file)
+  "Extract title from FILE (org or md)."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (goto-char (point-min))
+    (cond
+     ((re-search-forward "^#\\+title:\\s-*\\(.*\\)" nil t) (match-string 1))
+     ((re-search-forward "^title:\\s-*\"?\\(.*?\\)\"?$" nil t) (match-string 1))
+     ((re-search-forward "^# \\(.*\\)" nil t) (match-string 1))
+     (t (file-name-sans-extension (file-name-nondirectory file))))))
+
+(defun wiki--org-subdirs (dir)
+  "Return subdirectory names under DIR that contain .org files."
+  (let (result)
+    (dolist (d (directory-files dir t))
+      (when (and (file-directory-p d)
+                 (not (string-match "/\\.\\($\\|git\\)" d))
+                 (directory-files d t "\\.org$"))
+        (push (file-relative-name d dir) result)))
+    (nreverse result)))
+
+;; ──────────────────────────────────────────────────────────────
+;; 1. Validation
 ;; ──────────────────────────────────────────────────────────────
 (defun wiki-validate-buffer ()
   "현재 Org 버퍼의 필수 메타데이터 (#+title, #+tags, #+date) 검증."
@@ -39,65 +60,53 @@
     (message "✅ All staged .org files validated")))
 
 ;; ──────────────────────────────────────────────────────────────
-;; 2. 인덱스 자동 갱신 (Index Updater)
+;; 2. Index Update
 ;; ──────────────────────────────────────────────────────────────
 (defun wiki-update-indices ()
-  "wiki/ 의 index.org, wiki/meta/ 의 index.org, wiki/.archive/ 의 index.md 재생성."
+  "wiki/ 및 하위 디렉토리의 index 파일들 재생성."
   (interactive)
+  (dolist (subdir (wiki--org-subdirs wiki-dir))
+    (wiki-generate-org-index (expand-file-name subdir wiki-dir)))
   (wiki-generate-org-index wiki-dir)
-  (wiki-generate-org-index wiki-meta-dir)
   (wiki-generate-md-index wiki-archive-dir))
 
 (defun wiki-generate-org-index (dir)
-  "DIR 내 .org/.md 파일을 스캔해 Org 형식 index.org 생성."
-  (let* ((index-path (concat dir "index.org"))
-         (files (directory-files dir t "\\.\(org\|md\)$"))
-         (content (format "#+title: Wiki Index\n#+date: %s\n\n* Files\n"
-                          (format-time-string "%Y-%m-%d"))))
+  "DIR 내 .org 파일을 스캔해 index.org 생성."
+  (let* ((files (directory-files dir t "\\.org$"))
+         (date (format-time-string "%Y-%m-%d"))
+         (content (format "#+title: Wiki Index\n#+date: %s\n\n* Files\n" date)))
     (dolist (f (sort files #'string<))
       (when (and (file-regular-p f) (not (string-match "index\\." (file-name-nondirectory f))))
-        (let* ((rel (file-relative-name f dir))
-               (title (with-temp-buffer
-                        (insert-file-contents f)
-                        (goto-char (point-min))
-                        (cond
-                         ((re-search-forward "^#\\+title:\\s-*\\(.*\\)" nil t)
-                          (match-string 1))
-                         ((re-search-forward "^title:\\s-*\"?\\(.*?\\)\"?$" nil t)
-                          (match-string 1))
-                         ((re-search-forward "^# \\(.*\\)" nil t)
-                          (match-string 1))
-                         (t (file-name-sans-extension rel))))))
-          (setq content (concat content "- [[file:" rel "][" title "]]\n")))))
-    (with-temp-file index-path
+        (let ((rel (file-relative-name f dir)))
+          (setq content (concat content
+                                (format "- [[file:%s][%s]]\n" rel (wiki-extract-title f)))))))
+    ;; Directory links (only for root)
+    (when (string-equal (expand-file-name dir) (expand-file-name wiki-dir))
+      (let ((subdirs (wiki--org-subdirs dir)))
+        (when subdirs
+          (setq content (concat content "\n* Directories\n"))
+          (dolist (d subdirs)
+            (setq content (concat content
+                                  (format "- [[file:%s/index.org][%s/]]\n" d d)))))))
+    (with-temp-file (expand-file-name "index.org" dir)
       (insert content))
-    (message "📑 Updated org index: %s" index-path)))
+    (message "📑 Updated org index: %s" (expand-file-name "index.org" dir))))
 
 (defun wiki-generate-md-index (dir)
-  "DIR 내 .md 파일을 스캔해 Markdown 형식 index.md 생성."
-  (let* ((index-path (concat dir "index.md"))
-         (files (directory-files dir t "\\.md$"))
-         (content (format "---\ntitle: \"Wiki Archive Index\"\ndate: \"%s\"\n---\n\n# Wiki Archive Index\n\n"
-                          (format-time-string "%Y-%m-%d"))))
+  "DIR 내 .md 파일을 스캔해 index.md 생성."
+  (let* ((files (directory-files dir t "\\.md$"))
+         (date (format-time-string "%Y-%m-%d"))
+         (content (format "---\ntitle: \"Wiki Archive Index\"\ndate: \"%s\"\n---\n\n# Wiki Archive Index\n\n" date)))
     (dolist (f (sort files #'string<))
       (when (and (file-regular-p f) (not (string-match "index\\." (file-name-nondirectory f))))
-        (let* ((rel (file-relative-name f dir))
-               (title (with-temp-buffer
-                        (insert-file-contents f)
-                        (goto-char (point-min))
-                        (cond
-                         ((re-search-forward "^title:\\s-*\"?\\(.*?\\)\"?$" nil t)
-                          (match-string 1))
-                         ((re-search-forward "^# \\(.*\\)" nil t)
-                          (match-string 1))
-                         (t (file-name-sans-extension rel))))))
-          (setq content (concat content "- [" title "](" rel ")\n")))))
-    (with-temp-file index-path
+        (let ((rel (file-relative-name f dir)))
+          (setq content (concat content (format "- [%s](%s)\n" (wiki-extract-title f) rel))))))
+    (with-temp-file (expand-file-name "index.md" dir)
       (insert content))
-    (message "📑 Updated md index: %s" index-path)))
+    (message "📑 Updated md index: %s" (expand-file-name "index.md" dir))))
 
 ;; ──────────────────────────────────────────────────────────────
-;; 3. 아카이빙 (AI 압축 요약 → MD 저장 + 인덱스 갱신)
+;; 3. Archive (AI → MD)
 ;; ──────────────────────────────────────────────────────────────
 (defun wiki-archive-current-file ()
   "현재 .org 파일을 AI를 통해 압축 요약하여 MD로 변환해 wiki/.archive/ 에 저장."
@@ -106,15 +115,13 @@
     (user-error "Buffer not visiting a file"))
   (unless (string-match "\\.org$" buffer-file-name)
     (user-error "Only .org files can be archived"))
-
   (wiki-validate-buffer)
 
   (let* ((org-path buffer-file-name)
          (base (file-name-sans-extension (file-name-nondirectory org-path)))
-         (md-path (concat wiki-archive-dir base ".md"))
+         (md-path (expand-file-name (concat base ".md") wiki-archive-dir))
          (tmp-file (make-temp-file "wiki-archive-" nil ".org")))
 
-    ;; Org 내용을 임시 파일에 저장 (명령행 길이 제한 회피)
     (with-temp-file tmp-file
       (insert-file-contents org-path))
 
@@ -129,38 +136,33 @@ Rules:
 File path: %s" tmp-file base tmp-file)))
       (message "🤖 Archiving via OpenCode Agent (this may take a moment)...")
       (let ((resp (shell-command-to-string (format "opencode run %s" (shell-quote-argument prompt)))))
-        (delete-file tmp-file) ;; 임시 파일 정리
+        (delete-file tmp-file)
         (if (and resp (> (length resp) 0))
             (progn
               (make-directory wiki-archive-dir t)
-              (with-temp-file md-path
-                (insert resp))
+              (with-temp-file md-path (insert resp))
               (wiki-update-indices)
               (message "✅ Archived to: %s" md-path))
-           (user-error "OpenCode Agent returned empty response"))))))
+          (user-error "OpenCode Agent returned empty response"))))))
 
 ;; ──────────────────────────────────────────────────────────────
-;; 4. AI 포맷팅 (로컬 OpenCode Agent 사용)
+;; 4. AI Formatting
 ;; ──────────────────────────────────────────────────────────────
 (defun wiki-ai-format-region (start end &optional instructions)
   "선택 영역을 로컬 OpenCode Agent (opencode run) 로 포맷팅."
   (interactive "r\nsInstructions (default: format as clean Org): ")
   (unless (executable-find "opencode")
     (user-error "'opencode' 명령어를 찾을 수 없습니다. PATH 를 확인하세요."))
-
   (let* ((text (buffer-substring-no-properties start end))
          (prompt (format "%s\n\n---\n%s\n---"
                          (or instructions "Format the following text as clean, well-structured Org-mode content. Preserve meaning but improve readability.")
                          text))
          (cmd (format "opencode run %s" (shell-quote-argument prompt))))
-
     (message "🤖 Sending to local OpenCode Agent...")
     (let ((resp (shell-command-to-string cmd)))
       (if (and resp (> (length resp) 0))
-          (progn
-            (delete-region start end)
-            (insert resp)
-            (message "✅ AI formatting applied via OpenCode"))
+          (progn (delete-region start end) (insert resp)
+                 (message "✅ AI formatting applied via OpenCode"))
         (user-error "OpenCode Agent 가 빈 응답을 반환했습니다.")))))
 
 (defun wiki-ai-format-buffer ()
@@ -169,13 +171,12 @@ File path: %s" tmp-file base tmp-file)))
   (wiki-ai-format-region (point-min) (point-max)))
 
 ;; ──────────────────────────────────────────────────────────────
-;; 5. 파일 삭제 (Delete)
+;; 5. Delete
 ;; ──────────────────────────────────────────────────────────────
 (defun wiki-delete-file (&optional file)
   "Wiki 디렉토리 내 FILE을 삭제. FILE이 nil이면 현재 버퍼 파일 삭제."
   (interactive)
-  (let* ((target (or file
-                     (when buffer-file-name buffer-file-name)
+  (let* ((target (or file (when buffer-file-name buffer-file-name)
                      (read-file-name "Delete file: " wiki-dir)))
          (target-abs (expand-file-name target))
          (wiki-abs (expand-file-name wiki-dir))
@@ -192,13 +193,10 @@ File path: %s" tmp-file base tmp-file)))
       (message "✅ Deleted: %s" rel))))
 
 ;; ──────────────────────────────────────────────────────────────
-;; 6. Org 구조적 수정 헬퍼 (Structural Org Editing)
+;; 6. Org Structural Helpers
 ;; ──────────────────────────────────────────────────────────────
-;; eval-elisp fallback 없이 전용 툴 패턴으로 org 파일 수정을 지원
-
 (defun wiki-org-find-heading (file heading-title)
-  "FILE에서 HEADING-TITLE과 정확히 일치하는 heading의 위치를 반환.
-결과: (point-min . point-max) 컨스 셀, 없으면 nil."
+  "FILE에서 HEADING-TITLE heading의 위치를 (start . end)로 반환."
   (with-temp-buffer
     (insert-file-contents file)
     (org-mode)
@@ -209,7 +207,7 @@ File path: %s" tmp-file base tmp-file)))
         (cons start (point))))))
 
 (defun wiki-org-heading-exists-p (file heading-title)
-  "FILE에 HEADING-TITLE이라는 heading이 있는지 확인."
+  "FILE에 HEADING-TITLE heading이 있는지 확인."
   (with-temp-buffer
     (insert-file-contents file)
     (org-mode)
@@ -217,8 +215,7 @@ File path: %s" tmp-file base tmp-file)))
     (re-search-forward (format "^\\*+ %s$" (regexp-quote heading-title)) nil t)))
 
 (defun wiki-org-insert-heading-after (file after-heading new-heading &optional body)
-  "FILE의 AFTER-HEADING 바로 뒤에 NEW-HEADING을 삽입.
-BODY가 제공되면 heading 아래에 추가."
+  "FILE의 AFTER-HEADING 뒤에 NEW-HEADING을 삽입."
   (unless (wiki-org-heading-exists-p file after-heading)
     (user-error "Heading '%s' not found in %s" after-heading file))
   (with-temp-buffer
@@ -227,16 +224,13 @@ BODY가 제공되면 heading 아래에 추가."
     (goto-char (point-min))
     (re-search-forward (format "^\\*+ %s$" (regexp-quote after-heading)) nil t)
     (org-end-of-subtree t t)
-    (insert "\n")
-    (insert new-heading)
-    (when body
-      (insert "\n" body))
+    (insert "\n" new-heading)
+    (when body (insert "\n" body))
     (write-region (point-min) (point-max) file nil 'silent)
     (message "✅ Inserted heading '%s' after '%s'" new-heading after-heading)))
 
 (defun wiki-org-append-to-heading (file heading-title &optional text)
-  "FILE의 HEADING-TITLE body 끝에 TEXT를 추가.
-heading이 없으면 새로 생성."
+  "FILE의 HEADING-TITLE body 끝에 TEXT를 추가."
   (if (wiki-org-heading-exists-p file heading-title)
       (with-temp-buffer
         (insert-file-contents file)
@@ -245,11 +239,9 @@ heading이 없으면 새로 생성."
         (re-search-forward (format "^\\*+ %s$" (regexp-quote heading-title)) nil t)
         (org-end-of-subtree t t)
         (backward-char)
-        ;; 마지막 newline 앞에 삽입
         (unless (looking-back "\n\n" (max (- (point) 2) (point-min)))
           (insert "\n"))
-        (when text
-          (insert text "\n"))
+        (when text (insert text "\n"))
         (write-region (point-min) (point-max) file nil 'silent)
         (message "✅ Appended to heading '%s'" heading-title))
     (user-error "Heading '%s' not found — use wiki-org-insert-heading-after instead" heading-title)))
@@ -280,21 +272,124 @@ heading이 없으면 새로 생성."
     (org-mode)
     (goto-char (point-min))
     (re-search-forward (format "^\\*+ %s$" (regexp-quote parent-heading)) nil t)
-    (let ((level (org-current-level))
-          (parent-end (progn (org-end-of-subtree t t) (point))))
-      ;; 자식은 부모 레벨 + 1의 heading이어야 함
-      (let ((child-level (1+ level))
-            (prefix (make-string child-level ?*)))
-        (goto-char parent-end)
-        (insert "\n")
-        (insert (format "%s %s" prefix child-heading))
-        (when body
-          (insert "\n" body))
-        (write-region (point-min) (point-max) file nil 'silent)
-        (message "✅ Inserted child heading '%s' under '%s'" child-heading parent-heading)))))
+    (let ((parent-end (progn (org-end-of-subtree t t) (point)))
+          (child-prefix (make-string (1+ (org-current-level)) ?*)))
+      (goto-char parent-end)
+      (insert "\n" (format "%s %s" child-prefix child-heading))
+      (when body (insert "\n" body))
+      (write-region (point-min) (point-max) file nil 'silent)
+      (message "✅ Inserted child heading '%s' under '%s'" child-heading parent-heading))))
 
 ;; ──────────────────────────────────────────────────────────────
-;; 편의 키바인딩 (org 로드 후 적용)
+;; 7. Journal Monthly Archive
+;; ──────────────────────────────────────────────────────────────
+(defun wiki--extract-done-logs (section-regex month)
+  "Extract DONE log timestamps for MONTH from section matching SECTION-REGEX.
+Returns (timestamps . positions) cons."
+  (let (timestamps positions)
+    (when (re-search-forward section-regex nil t)
+      (let ((sec-start (line-beginning-position)))
+        (org-end-of-subtree t t)
+        (goto-char sec-start)
+        (while (re-search-forward
+                (format "^\\s-*- State \"DONE\".*\\[%s-\\([0-9]\\{2\\} [A-Za-z]\\{3\\} [0-9]\\{2\\}:[0-9]\\{2\\}\\)\\]"
+                        (regexp-quote month))
+                (save-excursion (org-end-of-subtree t t) (point)) t)
+          (let ((start (line-beginning-position)))
+            (forward-line 1)
+            (push (match-string 1) timestamps)
+            (push (cons start (point)) positions)))
+        ;; Ensure deletion doesn't interfere with outer code by recording positions
+        (dolist (p positions) (delete-region (car p) (cdr p)))))
+    (cons (nreverse timestamps) (nreverse positions))))
+
+(defun wiki-archive-journal-month (month)
+  "Archive YYYY-MM tasks from journal.org to roam/monthly/."
+  (interactive "sArchive month (YYYY-MM): ")
+  (unless (string-match-p "^[0-9]\\{4\\}-[0-9]\\{2\\}$" month)
+    (user-error "Month must be in YYYY-MM format (e.g. 2026-06)"))
+
+  (let* ((journal-path (expand-file-name "journal.org" wiki-dir))
+         (monthly-dir (expand-file-name "roam/monthly/" wiki-dir))
+         (section-text nil) (daily-logs nil) (weekly-logs nil))
+
+    ;; Guard: journal.org must not have unsaved changes
+    (let ((buf (find-buffer-visiting journal-path)))
+      (when (and buf (buffer-modified-p buf))
+        (user-error "journal.org is open and modified in Emacs. Save it first.")))
+
+    (with-temp-buffer
+      (insert-file-contents journal-path)
+      (org-mode)
+
+      ;; 1. Extract & delete YYYY-MM Tasks section
+      (goto-char (point-min))
+      (unless (re-search-forward (format "^\\* %s " (regexp-quote month)) nil t)
+        (user-error "Month '%s' section not found in journal.org" month))
+      (let ((sec-start (line-beginning-position)))
+        (org-end-of-subtree t t)
+        (let ((sec-end (point)))
+          ;; HOLD check
+          (save-excursion
+            (goto-char sec-start)
+            (let (hold-items)
+              (while (re-search-forward "^\\*\\{2,\\} HOLD " sec-end t)
+                (push (buffer-substring-no-properties
+                       (line-beginning-position) (line-end-position)) hold-items))
+              (when hold-items
+                (user-error "HOLD items in %s:\n%s" month
+                           (string-join (nreverse hold-items) "\n")))))
+          (setq section-text (buffer-substring-no-properties sec-start sec-end))
+          (delete-region sec-start sec-end)))
+
+      ;; 2. Extract recurring task DONE logs
+      (goto-char (point-min))
+      (let ((result (wiki--extract-done-logs
+                     "^\\*+ TODO Daily Recurring Tasks" month)))
+        (setq daily-logs (car result)))
+      (goto-char (point-min))
+      (let ((result (wiki--extract-done-logs
+                     "^\\*\\{2,\\} TODO 주간일지 작성" month)))
+        (setq weekly-logs (car result)))
+
+      (write-region (point-min) (point-max) journal-path nil 'silent))
+
+    ;; 3. Write archive file
+    (make-directory monthly-dir t)
+    (let* ((timestamp (format-time-string "%Y%m%d%H%M%S"))
+           (archive-name (format "%s-monthly_%s.org" timestamp month))
+           (archive-path (expand-file-name archive-name monthly-dir)))
+      (with-temp-file archive-path
+        (insert section-text)
+        (when (or daily-logs weekly-logs)
+          (insert (format "\n* %s Recurring Task Logs\n" month))
+          (when daily-logs
+            (insert "** Daily Recurring Tasks\n")
+            (dolist (ts daily-logs)
+              (insert (format "*** DONE [%s-%s]\n    CLOSED: [%s-%s]\n" month ts month ts))))
+          (when weekly-logs
+            (insert "** Weekly Reccurring Tasks\n*** 주간일지 작성\n")
+            (dolist (ts weekly-logs)
+              (insert (format "**** DONE [%s-%s]\n     CLOSED: [%s-%s]\n" month ts month ts))))))
+      (ignore-errors
+        (when (fboundp 'org-roam-db-sync) (org-roam-db-sync)))
+      (message "✅ Archived %s → %s" month archive-name))))
+
+;; ──────────────────────────────────────────────────────────────
+;; 8. Auto-update on Save
+;; ──────────────────────────────────────────────────────────────
+(defun wiki-after-save-update-indices ()
+  "wiki/ 또는 .archive/ 디렉토리 내 파일 저장 시 인덱스 자동 갱신."
+  (when (and buffer-file-name
+             (or (string-prefix-p (expand-file-name wiki-dir) buffer-file-name)
+                 (string-prefix-p (expand-file-name wiki-archive-dir) buffer-file-name))
+             (string-match-p "\\.\\(org\\|md\\)$" buffer-file-name))
+    (wiki-update-indices)))
+
+(add-hook 'after-save-hook #'wiki-after-save-update-indices)
+
+;; ──────────────────────────────────────────────────────────────
+;; Keybindings & Hooks
 ;; ──────────────────────────────────────────────────────────────
 (with-eval-after-load 'org
   (define-key org-mode-map (kbd "C-c w v") #'wiki-validate-buffer)
@@ -304,160 +399,8 @@ heading이 없으면 새로 생성."
   (define-key org-mode-map (kbd "C-c w i") #'wiki-update-indices)
   (define-key org-mode-map (kbd "C-c w d") #'wiki-delete-file))
 
-;; Magit 커밋 전 자동 검증 훅
 (with-eval-after-load 'magit
   (add-hook 'magit-pre-commit-hook #'wiki-pre-commit-validate))
-
-;; ──────────────────────────────────────────────────────────────
-;; 7. Journal Monthly Archive
-;; ──────────────────────────────────────────────────────────────
-(defun wiki-archive-journal-month (month)
-  "Archive YYYY-MM tasks from journal.org to roam/monthly/.
-MONTH format: \"2026-06\"
-- Finds \"* YYYY-MM Tasks\" section in journal.org
-- Checks for HOLD items → aborts if found
-- Archives section to roam/monthly/YYYYMMDDHHMMSS-monthly_YYYY-MM.org
-  including DONE logs from recurring tasks (Daily/Weekly)
-- Removes section and DONE logs from journal.org"
-  (interactive "sArchive month (YYYY-MM): ")
-  (unless (string-match-p "^[0-9]\\{4\\}-[0-9]\\{2\\}$" month)
-    (user-error "Month must be in YYYY-MM format (e.g. 2026-06)"))
-
-  (let* ((journal-path (expand-file-name "journal.org" wiki-dir))
-         (monthly-dir (expand-file-name "roam/monthly/" wiki-dir))
-         (heading-regex (format "^\\* %s " (regexp-quote month)))
-         section-text daily-lines weekly-lines)
-
-    ;; Buffer conflict check: journal.org must be saved first
-    (let ((buf (find-buffer-visiting journal-path)))
-      (when (and buf (buffer-modified-p buf))
-        (user-error "journal.org is open and modified in Emacs. Save it first.")))
-
-    ;; ── Process journal.org in temp buffer ──
-    (with-temp-buffer
-      (insert-file-contents journal-path)
-      (org-mode)
-
-      ;; Collect ALL sections matching "^\* YYYY-MM "
-      (goto-char (point-min))
-      (let (sections hold-items)
-        (while (re-search-forward heading-regex nil t)
-          (let ((heading-line (buffer-substring-no-properties
-                               (line-beginning-position) (line-end-position)))
-                (sec-start (line-beginning-position)))
-            (org-end-of-subtree t t)
-            (let ((sec-end (point)))
-              ;; Check HOLD items within this section
-              (save-excursion
-                (goto-char sec-start)
-                (while (re-search-forward "^\\*\\{2,\\} HOLD " sec-end t)
-                  (push (list heading-line
-                              (buffer-substring-no-properties
-                               (line-beginning-position) (line-end-position))
-                              (line-number-at-pos))
-                        hold-items)))
-              ;; Store section info
-              (push (list sec-start sec-end
-                          (buffer-substring-no-properties sec-start sec-end))
-                    sections))))
-        ;; All-or-nothing: any HOLD → abort entire operation
-        (when hold-items
-          (let ((msg (format "HOLD items found in %s:\n" month)))
-            (dolist (item (nreverse hold-items))
-              (setq msg (concat msg
-                                (format "  %s (line %d): %s\n"
-                                        (nth 0 item) (nth 2 item) (nth 1 item)))))
-            (user-error msg)))
-        ;; No sections found at all
-        (unless sections
-          (user-error "Month '%s' section not found in journal.org" month))
-        ;; Delete sections bottom-up to preserve positions
-        (dolist (sec sections)   ; sections is bottom-up (push order)
-          (delete-region (car sec) (cadr sec)))
-        ;; Build archive content (top-to-bottom order)
-        (setq section-text
-              (string-join
-               (mapcar (lambda (s) (nth 2 s)) (nreverse sections))
-               "\n")))
-
-      ;; ── Extract Daily Recurring Tasks DONE logs ──
-      (goto-char (point-min))
-      (when (re-search-forward "^\\*+ TODO Daily Recurring Tasks" nil t)
-        (let ((dr-start (line-beginning-position)))
-          (org-end-of-subtree t t)
-          (let ((dr-end (point))
-                (positions '()))
-            (goto-char dr-start)
-            (while (re-search-forward
-                    (format "^\\s-*- State \"DONE\".*\\[%s-\\([0-9]\\{2\\} [A-Za-z]\\{3\\} [0-9]\\{2\\}:[0-9]\\{2\\}\\)\\]"
-                            (regexp-quote month))
-                    dr-end t)
-              (let ((start (line-beginning-position)))
-                (forward-line 1)
-                (push (cons start (point)) positions)
-                (push (match-string 1) daily-lines)))
-            ;; Delete lines bottom-up to preserve positions
-            (dolist (p positions)
-              (delete-region (car p) (cdr p))))))
-
-      ;; ── Extract Weekly Reccurring Tasks DONE logs ──
-      (goto-char (point-min))
-      (when (re-search-forward "^\\*+ Weekly Reccurring Tasks" nil t)
-        (let ((wr-start (line-beginning-position)))
-          (org-end-of-subtree t t)
-          (let ((wr-end (point)))
-            (goto-char wr-start)
-            (when (re-search-forward "^\\*\\{2,\\} TODO 주간일지 작성" wr-end t)
-              (let ((wj-start (line-beginning-position)))
-                (org-end-of-subtree t t)
-                (let ((wj-end (point))
-                      (positions '()))
-                  (goto-char wj-start)
-                  (while (re-search-forward
-                          (format "^\\s-*- State \"DONE\".*\\[%s-\\([0-9]\\{2\\} [A-Za-z]\\{3\\} [0-9]\\{2\\}:[0-9]\\{2\\}\\)\\]"
-                                  (regexp-quote month))
-                          wj-end t)
-                    (let ((start (line-beginning-position)))
-                      (forward-line 1)
-                      (push (cons start (point)) positions)
-                      (push (match-string 1) weekly-lines)))
-                  (dolist (p positions)
-                    (delete-region (car p) (cdr p))))))))
-
-      ;; Save modified journal.org
-      (write-region (point-min) (point-max) journal-path nil 'silent))
-
-    ;; ── Create archive file ──
-    (make-directory monthly-dir t)
-    (let* ((timestamp (format-time-string "%Y%m%d%H%M%S"))
-           (archive-name (format "%s-monthly_%s.org" timestamp month))
-           (archive-path (expand-file-name archive-name monthly-dir)))
-      (with-temp-file archive-path
-        ;; YYYY-MM Tasks section (as-is)
-        (insert section-text)
-        ;; Recurring Task Logs (DONE → heading + CLOSED)
-        (when (or daily-lines weekly-lines)
-          (insert (format "\n* %s Recurring Task Logs\n" month))
-          (when daily-lines
-            (insert "** Daily Recurring Tasks\n")
-            (dolist (ts (nreverse daily-lines))
-              (insert (format "*** DONE [%s-%s]\n    CLOSED: [%s-%s]\n"
-                              month ts month ts))))
-          (when weekly-lines
-            (insert "** Weekly Reccurring Tasks\n")
-            (insert "*** 주간일지 작성\n")
-            (dolist (ts (nreverse weekly-lines))
-              (insert (format "**** DONE [%s-%s]\n     CLOSED: [%s-%s]\n"
-                              month ts month ts))))))
-
-      ;; Sync org-roam DB (optional)
-      (ignore-errors
-        (when (fboundp 'org-roam-db-sync)
-          (org-roam-db-sync)))
-
-      (message "✅ Archived %s → %s" month archive-name)))))
-
-
 
 (provide 'wiki-tools)
 ;;; wiki-tools.el ends here
