@@ -15,7 +15,7 @@
   :straight (acp :type git :host github :repo "xenodium/acp.el"))
 
 (use-package agent-shell
-  :straight (agent-shell :type git :host github :repo "lazyskulptor/agent-shell" :branch "fix-stale-agent-message")
+  :straight (agent-shell :type git :host github :repo "lazyskulptor/agent-shell" :branch "main")
   :after (acp shell-maker)
   :config
   ;; 기본 설정
@@ -78,6 +78,9 @@
   
   ;; 하이라이트 설정
   (setq agent-shell-highlight-blocks t)
+  
+  ;; DWIM 컨텍스트 소스 (line 제외 — org table row 자동 삽입 방지)
+  (setq agent-shell-context-sources '(files region error))
   
   ;; 파일 완성 활성화
   (setq agent-shell-file-completion-enabled t)
