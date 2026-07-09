@@ -8,7 +8,7 @@
 ;; ──────────────────────────────────────────────────────────────
 ;; 0. Settings
 ;; ──────────────────────────────────────────────────────────────
-(defcustom wiki-index-exclude-dirs '("monthly")
+(defcustom wiki-index-exclude-dirs '("monthly" "old")
   "Directory names to exclude from index generation.
 Matched against relative path from wiki-dir (e.g. \"roam/monthly\")."
   :type '(repeat string))
