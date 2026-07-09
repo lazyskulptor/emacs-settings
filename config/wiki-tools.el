@@ -13,6 +13,13 @@
 Matched against relative path from wiki-dir (e.g. \"roam/monthly\")."
   :type '(repeat string))
 
+(defcustom wiki-index-max-depth 3
+  "Maximum nesting level for index generation from `wiki-dir'.
+Level 1 = wiki/ only.
+Level 2 = wiki/ + immediate children (projects/, roam/, ...).
+Level 3 = + grandchildren (projects/ezcaretech/, ...)."
+  :type 'integer)
+
 ;; ──────────────────────────────────────────────────────────────
 ;; 1. Internal Helpers
 ;; ──────────────────────────────────────────────────────────────
@@ -76,21 +83,25 @@ Excludes directories matching `wiki-index-exclude-dirs' (relative to `wiki-dir')
 ;; ──────────────────────────────────────────────────────────────
 ;; 2. Index Update
 ;; ──────────────────────────────────────────────────────────────
-(defun wiki--update-indices-recursive (dir)
-  "DIR의 index.org 생성 후, Directories 섹션을 따라 하위 디렉토리로 재귀 진입."
-  (wiki-generate-org-index dir)
-  (let ((subdirs (wiki--org-subdirs dir)))
-    (dolist (subdir subdirs)
-      (wiki--update-indices-recursive (expand-file-name subdir dir)))))
+(defun wiki--update-indices-recursive (dir current-level max-level)
+  "DIR의 index.org 생성 후, 하위 디렉토리로 재귀 진입.
+CURRENT-LEVEL: 현재 깊이 (root=0). MAX-LEVEL: 최대 허용 깊이."
+  (wiki-generate-org-index dir (< current-level (1- max-level)))
+  (when (< current-level (1- max-level))
+    (dolist (subdir (wiki--org-subdirs dir))
+      (wiki--update-indices-recursive
+       (expand-file-name subdir dir) (1+ current-level) max-level))))
 
 (defun wiki-update-indices ()
-  "wiki/ 하위 디렉토리(재귀)의 index 파일들 재생성."
+  "wiki/ 하위 디렉토리(재귀)의 index 파일들 재생성.
+깊이는 `wiki-index-max-depth'로 제어."
   (interactive)
-  (wiki--update-indices-recursive wiki-dir)
+  (wiki--update-indices-recursive wiki-dir 0 wiki-index-max-depth)
   (wiki-generate-md-index wiki-archive-dir))
 
-(defun wiki-generate-org-index (dir)
-  "DIR 내 .org 파일을 스캔해 index.org 생성."
+(defun wiki-generate-org-index (dir &optional show-directories)
+  "DIR 내 .org 파일을 스캔해 index.org 생성.
+SHOW-DIRECTORIES가 non-nil이면 하위 디렉토리 링크(Directories)도 추가."
   (let* ((files (directory-files dir t "\\.org$"))
          (date (format-time-string "%Y-%m-%d"))
          (content (format "#+title: Wiki Index\n#+date: %s\n\n* Files\n" date)))
@@ -99,13 +110,14 @@ Excludes directories matching `wiki-index-exclude-dirs' (relative to `wiki-dir')
         (let ((rel (file-relative-name f dir)))
           (setq content (concat content
                                 (format "- [[file:%s][%s]]\n" rel (wiki-extract-title f)))))))
-    ;; Directory links (recursion signal — follow these to generate sub-indices)
-    (let ((subdirs (wiki--org-subdirs dir)))
-      (when subdirs
-        (setq content (concat content "\n* Directories\n"))
-        (dolist (d subdirs)
-          (setq content (concat content
-                                (format "- [[file:%s/index.org][%s/]]\n" d d))))))
+    ;; Directory links (only added when deeper indexing is intended)
+    (when show-directories
+      (let ((subdirs (wiki--org-subdirs dir)))
+        (when subdirs
+          (setq content (concat content "\n* Directories\n"))
+          (dolist (d subdirs)
+            (setq content (concat content
+                                  (format "- [[file:%s/index.org][%s/]]\n" d d)))))))
     (with-temp-file (expand-file-name "index.org" dir)
       (insert content))
     (message "📑 Updated org index: %s" (expand-file-name "index.org" dir))))
