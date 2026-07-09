@@ -6,15 +6,7 @@
   (require 'ox-md))
 
 ;; ──────────────────────────────────────────────────────────────
-;; 0. Settings
-;; ──────────────────────────────────────────────────────────────
-(defcustom wiki-index-exclude-dirs '("monthly" "old")
-  "Directory names to exclude from index generation.
-Matched against relative path from wiki-dir (e.g. \"roam/monthly\")."
-  :type '(repeat string))
-
-;; ──────────────────────────────────────────────────────────────
-;; 1. Internal Helpers
+;; 0. Internal Helpers
 ;; ──────────────────────────────────────────────────────────────
 (defun wiki-extract-title (file)
   "Extract title from FILE (org or md)."
@@ -28,19 +20,27 @@ Matched against relative path from wiki-dir (e.g. \"roam/monthly\")."
      (t (file-name-sans-extension (file-name-nondirectory file))))))
 
 (defun wiki--org-subdirs (dir)
-  "Return subdirectory names under DIR that contain .org files.
-Excludes directories matching `wiki-index-exclude-dirs' (relative to `wiki-dir')."
+  "Return subdirectory names under DIR that contain any .org files.
+Used only for bootstrapping first-level index.org files."
   (let (result)
     (dolist (d (directory-files dir t))
       (when (and (file-directory-p d)
                  (not (member (file-name-nondirectory (directory-file-name d))
                               '("." ".." ".git")))
                  (directory-files d t "\\.org$"))
-        (let ((rel (file-relative-name d dir)))
-          ;; Exclude based on simple name match (e.g., "monthly" excludes any ./monthly/)
-          (unless (member (file-name-nondirectory (directory-file-name d))
-                          wiki-index-exclude-dirs)
-            (push rel result)))))
+        (push (file-relative-name d dir) result)))
+    (nreverse result)))
+
+(defun wiki--indexed-subdirs (dir)
+  "Return subdirectory names under DIR that have their own index.org.
+This is the recursion signal — only follow directories with an active index."
+  (let (result)
+    (dolist (d (directory-files dir t))
+      (when (and (file-directory-p d)
+                 (not (member (file-name-nondirectory (directory-file-name d))
+                              '("." ".." ".git")))
+                 (file-exists-p (expand-file-name "index.org" d)))
+        (push (file-relative-name d dir) result)))
     (nreverse result)))
 
 ;; ──────────────────────────────────────────────────────────────
@@ -77,20 +77,26 @@ Excludes directories matching `wiki-index-exclude-dirs' (relative to `wiki-dir')
 ;; 2. Index Update
 ;; ──────────────────────────────────────────────────────────────
 (defun wiki--update-indices-recursive (dir)
-  "DIR의 index.org 생성 후, Directories 섹션을 따라 하위 디렉토리로 재귀 진입."
+  "DIR의 index.org 생성 후, index.org가 존재하는 하위 디렉토리로만 재귀 진입."
   (wiki-generate-org-index dir)
-  (let ((subdirs (wiki--org-subdirs dir)))
-    (dolist (subdir subdirs)
-      (wiki--update-indices-recursive (expand-file-name subdir dir)))))
+  (dolist (subdir (wiki--indexed-subdirs dir))
+    (wiki--update-indices-recursive (expand-file-name subdir dir))))
 
 (defun wiki-update-indices ()
-  "wiki/ 하위 디렉토리(재귀)의 index 파일들 재생성."
+  "wiki/ 하위 디렉토리(재귀)의 index 파일들 재생성.
+1단계 하위 디렉토리는 부트스트래핑(.org 파일 기반), 나머지는 index.org 존재 기반."
   (interactive)
+  ;; Bootstrap first-level: ensure direct children have index.org
+  (dolist (subdir (wiki--org-subdirs wiki-dir))
+    (let ((subdir-path (expand-file-name subdir wiki-dir)))
+      (wiki-generate-org-index subdir-path)))
+  ;; Recursive indexing follows existing index.org files only
   (wiki--update-indices-recursive wiki-dir)
   (wiki-generate-md-index wiki-archive-dir))
 
 (defun wiki-generate-org-index (dir)
-  "DIR 내 .org 파일을 스캔해 index.org 생성."
+  "DIR 내 .org 파일을 스캔해 index.org 생성.
+Directories 섹션은 index.org가 존재하는 하위 디렉토리만 표시."
   (let* ((files (directory-files dir t "\\.org$"))
          (date (format-time-string "%Y-%m-%d"))
          (content (format "#+title: Wiki Index\n#+date: %s\n\n* Files\n" date)))
@@ -99,8 +105,8 @@ Excludes directories matching `wiki-index-exclude-dirs' (relative to `wiki-dir')
         (let ((rel (file-relative-name f dir)))
           (setq content (concat content
                                 (format "- [[file:%s][%s]]\n" rel (wiki-extract-title f)))))))
-    ;; Directory links (recursion signal — follow these to generate sub-indices)
-    (let ((subdirs (wiki--org-subdirs dir)))
+    ;; Directory links — only show subdirs that have their own index.org
+    (let ((subdirs (wiki--indexed-subdirs dir)))
       (when subdirs
         (setq content (concat content "\n* Directories\n"))
         (dolist (d subdirs)
