@@ -24,29 +24,7 @@
      ((re-search-forward "^# \\(.*\\)" nil t) (match-string 1))
      (t (file-name-sans-extension (file-name-nondirectory file))))))
 
-(defun wiki--org-subdirs (dir)
-  "Return subdirectory names under DIR that contain any .org files.
-Used only for bootstrapping first-level index.org files."
-  (let (result)
-    (dolist (d (directory-files dir t))
-      (when (and (file-directory-p d)
-                 (not (member (file-name-nondirectory (directory-file-name d))
-                              '("." ".." ".git")))
-                 (directory-files d t "\\.org$"))
-        (push (file-relative-name d dir) result)))
-    (nreverse result)))
-
-(defun wiki--indexed-subdirs (dir)
-  "Return subdirectory names under DIR that have their own index.org.
-This is the recursion signal — only follow directories with an active index."
-  (let (result)
-    (dolist (d (directory-files dir t))
-      (when (and (file-directory-p d)
-                 (not (member (file-name-nondirectory (directory-file-name d))
-                              '("." ".." ".git")))
-                 (file-exists-p (expand-file-name "index.org" d)))
-        (push (file-relative-name d dir) result)))
-    (nreverse result)))
+;; (wiki--org-subdirs and wiki--indexed-subdirs removed — replaced by wiki-build-graph)
 
 ;; ──────────────────────────────────────────────────────────────
 ;; 1. Validation
@@ -66,64 +44,10 @@ This is the recursion signal — only follow directories with an active index."
       (user-error "Wiki validation failed: %s" (string-join errors ", ")))
     (message "✅ Validation passed")))
 
-;; ──────────────────────────────────────────────────────────────
-;; 2. Index Update
-;; ──────────────────────────────────────────────────────────────
-(defun wiki--update-indices-recursive (dir)
-  "DIR의 index.org 생성 후, index.org가 존재하는 하위 디렉토리로만 재귀 진입."
-  (wiki-generate-org-index dir)
-  (dolist (subdir (wiki--indexed-subdirs dir))
-    (wiki--update-indices-recursive (expand-file-name subdir dir))))
-
-(defun wiki-update-indices ()
-  "wiki/ 하위 디렉토리(재귀)의 index 파일들 재생성.
-1단계 하위 디렉토리는 부트스트래핑(.org 파일 기반), 나머지는 index.org 존재 기반."
-  (interactive)
-  ;; Bootstrap first-level: ensure direct children have index.org
-  (dolist (subdir (wiki--org-subdirs wiki-dir))
-    (let ((subdir-path (expand-file-name subdir wiki-dir)))
-      (wiki-generate-org-index subdir-path)))
-  ;; Recursive indexing follows existing index.org files only
-  (wiki--update-indices-recursive wiki-dir)
-  (wiki-generate-md-index wiki-archive-dir))
-
-(defun wiki-generate-org-index (dir)
-  "DIR 내 .org 파일을 스캔해 index.org 생성.
-Directories 섹션은 index.org가 존재하는 하위 디렉토리만 표시."
-  (let* ((files (directory-files dir t "\\.org$"))
-         (date (format-time-string "%Y-%m-%d"))
-         (content (format "#+title: Wiki Index\n#+date: %s\n\n* Files\n" date)))
-    (dolist (f (sort files #'string<))
-      (when (and (file-regular-p f) (not (string-match "index\\." (file-name-nondirectory f))))
-        (let ((rel (file-relative-name f dir)))
-          (setq content (concat content
-                                (format "- [[file:%s][%s]]\n" rel (wiki-extract-title f)))))))
-    ;; Directory links — only show subdirs that have their own index.org
-    (let ((subdirs (wiki--indexed-subdirs dir)))
-      (when subdirs
-        (setq content (concat content "\n* Directories\n"))
-        (dolist (d subdirs)
-          (setq content (concat content
-                                (format "- [[file:%s/index.org][%s/]]\n" d d))))))
-    (with-temp-file (expand-file-name "index.org" dir)
-      (insert content))
-    (message "📑 Updated org index: %s" (expand-file-name "index.org" dir))))
-
-(defun wiki-generate-md-index (dir)
-  "DIR 내 .md 파일을 스캔해 index.md 생성."
-  (let* ((files (directory-files dir t "\\.md$"))
-         (date (format-time-string "%Y-%m-%d"))
-         (content (format "---\ntitle: \"Wiki Archive Index\"\ndate: \"%s\"\n---\n\n# Wiki Archive Index\n\n" date)))
-    (dolist (f (sort files #'string<))
-      (when (and (file-regular-p f) (not (string-match "index\\." (file-name-nondirectory f))))
-        (let ((rel (file-relative-name f dir)))
-          (setq content (concat content (format "- [%s](%s)\n" (wiki-extract-title f) rel))))))
-    (with-temp-file (expand-file-name "index.md" dir)
-      (insert content))
-    (message "📑 Updated md index: %s" (expand-file-name "index.md" dir))))
+;; (Index Update section removed — replaced by Graph Index, see section 8)
 
 ;; ──────────────────────────────────────────────────────────────
-;; 3. Archive (AI → MD)
+;; 2. Archive (AI → MD)
 ;; ──────────────────────────────────────────────────────────────
 (defun wiki-archive-current-file ()
   "현재 .org 파일을 AI를 통해 압축 요약하여 MD로 변환해 wiki/.archive/ 에 저장."
@@ -158,12 +82,12 @@ File path: %s" tmp-file base tmp-file)))
             (progn
               (make-directory wiki-archive-dir t)
               (with-temp-file md-path (insert resp))
-              (wiki-update-indices)
+              (wiki-build-graph)
               (message "✅ Archived to: %s" md-path))
           (user-error "OpenCode Agent returned empty response"))))))
 
 ;; ──────────────────────────────────────────────────────────────
-;; 4. AI Formatting
+;; 3. AI Formatting
 ;; ──────────────────────────────────────────────────────────────
 (defun wiki-ai-format-region (start end &optional instructions)
   "선택 영역을 로컬 OpenCode Agent (opencode run) 로 포맷팅."
@@ -188,7 +112,7 @@ File path: %s" tmp-file base tmp-file)))
   (wiki-ai-format-region (point-min) (point-max)))
 
 ;; ──────────────────────────────────────────────────────────────
-;; 5. Delete
+;; 4. Delete
 ;; ──────────────────────────────────────────────────────────────
 (defun wiki-delete-file (&optional file)
   "Wiki 디렉토리 내 FILE을 삭제. FILE이 nil이면 현재 버퍼 파일 삭제."
@@ -206,11 +130,11 @@ File path: %s" tmp-file base tmp-file)))
       (when (get-file-buffer target-abs)
         (kill-buffer (get-file-buffer target-abs)))
       (delete-file target-abs)
-      (wiki-update-indices)
+      (wiki-build-graph)
       (message "✅ Deleted: %s" rel))))
 
 ;; ──────────────────────────────────────────────────────────────
-;; 6. Org Structural Helpers (used by MCP tools in mcp-server-setting.el)
+;; 5. Org Structural Helpers (used by MCP tools in mcp-server-setting.el)
 ;; ──────────────────────────────────────────────────────────────
 (defun wiki-org-find-heading (file heading-title)
   "FILE에서 HEADING-TITLE heading의 위치를 (start . end)로 반환."
@@ -298,7 +222,7 @@ File path: %s" tmp-file base tmp-file)))
       (message "✅ Inserted child heading '%s' under '%s'" child-heading parent-heading))))
 
 ;; ──────────────────────────────────────────────────────────────
-;; 7. Journal Monthly Archive
+;; 6. Journal Monthly Archive
 ;; ──────────────────────────────────────────────────────────────
 (defun wiki--extract-done-logs (section-regex month)
   "Extract DONE log timestamps for MONTH from section matching SECTION-REGEX.
@@ -390,11 +314,11 @@ Returns (timestamps . positions) cons."
               (insert (format "**** DONE [%s-%s]\n     CLOSED: [%s-%s]\n" month ts month ts))))))
       (ignore-errors
         (when (fboundp 'org-roam-db-sync) (org-roam-db-sync)))
-      (wiki-update-indices)
+      (wiki-build-graph)
       (message "✅ Archived %s → %s" month archive-name))))
 
 ;; ──────────────────────────────────────────────────────────────
-;; 8. Wiki Commit (opencode subagent)
+;; 7. Wiki Commit (opencode subagent)
 ;; ──────────────────────────────────────────────────────────────
 (defun wiki-commit ()
   "wiki-commit 서브에이전트 실행. 어디서든 wiki 커밋 가능."
@@ -404,17 +328,372 @@ Returns (timestamps . positions) cons."
     (message "🚀 wiki-commit subagent started (see *wiki-commit* buffer)")))
 
 ;; ──────────────────────────────────────────────────────────────
-;; 9. Auto-update on Save
+;; 8. Graph Index
 ;; ──────────────────────────────────────────────────────────────
-(defun wiki-after-save-update-indices ()
-  "wiki/ 또는 .archive/ 디렉토리 내 파일 저장 시 인덱스 자동 갱신."
-  (when (and buffer-file-name
-             (or (string-prefix-p (expand-file-name wiki-dir) buffer-file-name)
-                 (string-prefix-p (expand-file-name wiki-archive-dir) buffer-file-name))
-             (string-match-p "\\.\\(org\\|md\\)$" buffer-file-name))
-    (wiki-update-indices)))
 
-(add-hook 'after-save-hook #'wiki-after-save-update-indices)
+(require 'json)
+
+(defsubst aget (key alist)
+  "Get KEY from ALIST using `equal' comparison.
+Wrapper around `alist-get' to avoid verbose `nil nil 'equal' anti-pattern."
+  (alist-get key alist nil nil 'equal))
+
+(defun wiki--json-normalize (obj)
+  "Recursively convert symbol keys to strings and vectors to lists.
+Needed because `json-read-file' returns symbol keys and vector arrays."
+  (cond
+   ((and (listp obj) (consp (car-safe obj)))
+    (mapcar (lambda (p)
+              (cons (if (symbolp (car p)) (symbol-name (car p)) (car p))
+                    (wiki--json-normalize (cdr p))))
+            obj))
+   ((vectorp obj)
+    (mapcar #'wiki--json-normalize (append obj nil)))
+   (t obj)))
+
+(defun wiki--read-graph ()
+  "Read graph.json, normalizing symbol keys to strings and vectors to lists."
+  (let ((d (ignore-errors (json-read-file (expand-file-name wiki-graph-file)))))
+    (wiki--json-normalize d)))
+
+(defun wiki--read-hashes ()
+  "Read hashes from plain text alist file (written by `prin1')."
+  (ignore-errors
+    (with-temp-buffer
+      (insert-file-contents (expand-file-name wiki-graph-hash-file))
+      (read (current-buffer)))))
+
+(defun wiki--write-hashes (alist)
+  "Write hashes as plain text alist using `prin1'.
+Returns ALIST for convenience."
+  (with-temp-file (expand-file-name wiki-graph-hash-file)
+    (prin1 alist (current-buffer)))
+  alist)
+
+(defvar wiki-graph-dir (concat wiki-dir ".graph/")
+  "Wiki graph directory.")
+
+(defvar wiki-graph-file (concat wiki-dir ".graph/graph.json")
+  "Wiki graph JSON file.")
+
+(defvar wiki-graph-hash-file (concat wiki-dir ".graph/hashes.json")
+  "File hash cache for incremental graph rebuild.")
+
+(defvar wiki-graph-max-headings 30
+  "Maximum number of headings to include per file in graph.")
+
+(defvar wiki-graph-stale-seconds 3600
+  "Graph older than this (seconds) is considered stale on startup.")
+
+(defun wiki--file-hash (file)
+  "Return SHA-1 hash of FILE content as hex string, or nil on error."
+  (ignore-errors
+    (with-temp-buffer
+      (insert-file-contents-literally file)
+      (secure-hash 'sha1 (current-buffer)))))
+
+(defun wiki--parse-org-metadata (file)
+  "Parse org FILE metadata. Return plist (:title :tags :date :headings :links)
+or nil if file is not an org file or unreadable.
+Extracts: #+TITLE, #+tags:/#+FILETAGS:, #+DATE:,
+1-level headings (up to `wiki-graph-max-headings'), [[file:REL_PATH][...]] links.
+Does NOT return body content."
+  (when (and (string-suffix-p ".org" file) (file-readable-p file))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (let (title tags date headings links)
+        ;; Extract title
+        (when (re-search-forward "^#\\+TITLE:\\s-*\\(.+\\)" nil t)
+          (setq title (string-trim (match-string 1))))
+        (goto-char (point-min))
+        ;; Extract tags: #+tags or #+FILETAGS (colon/comma/newline separated, then space-split)
+        (when (re-search-forward "^#\\+\\(?:tags\\|FILETAGS\\):\\s-*\\(.+\\)" nil t)
+          (let ((raw (match-string 1)))
+            ;; Format 1: :tag1:tag2:tag3: — strip leading/trailing colons
+            (when (string-match-p "^:" raw)
+              (setq raw (replace-regexp-in-string "^[:\\s-]+\\|[:\\s-]+$" "" raw)))
+            ;; Split by colon/comma/newline, then by space, flatten, trim
+            (setq tags
+                  (seq-filter
+                   (lambda (s) (not (string-empty-p s)))
+                   (mapcar #'string-trim
+                           (cl-loop for part in (split-string raw "[:,\n]")
+                                    append (split-string part " " t)))))))
+        (goto-char (point-min))
+        ;; Extract date
+        (when (re-search-forward "^#\\+DATE:\\s-*\\(.+\\)" nil t)
+          (setq date (string-trim (match-string 1))))
+        (goto-char (point-min))
+        ;; Extract 1-level headings (starts with single *)
+        (let ((count 0))
+          (while (and (< count wiki-graph-max-headings)
+                      (re-search-forward "^\\* \\(.+\\)$" nil t))
+            (push (string-trim (match-string 1)) headings)
+            (cl-incf count)))
+        (setq headings (nreverse headings))
+        (goto-char (point-min))
+        ;; Extract [[file:REL_PATH][...]] links (wiki-internal only)
+        (while (re-search-forward "\\[\\[file:\\([^]]+\\)\\]\\[" nil t)
+          (let ((target (match-string 1)))
+            ;; Only include wiki-internal relative paths (no absolute, no http)
+            (unless (or (string-match-p "^\\(/\\|https?:\\)" target))
+              ;; Strip org-search trailing ::*Heading suffix
+              (setq target (replace-regexp-in-string "::.*\\'" "" target))
+              (push target links))))
+        ;; Return plist
+        (list :title title :tags tags :date date
+              :headings headings
+               :links (delete-dups (nreverse links)))))))
+
+
+(defun wiki--parse-md-frontmatter (file)
+  "Parse YAML frontmatter from MD FILE. Return plist (:title :tags :date)
+or nil if no frontmatter found."
+  (when (and (string-suffix-p ".md" file) (file-readable-p file))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (goto-char (point-min))
+      (when (re-search-forward "^---\\s-*$" nil t)
+        (let (title tags date)
+          (when (re-search-forward "^title:\\s-*\"?\\(.+?\\)\"?\\s-*$" nil t)
+            (setq title (string-trim (match-string 1))))
+          (goto-char (point-min))
+          (when (re-search-forward "^tags:\\s-*\\[\\(.*\\)\\]\\s-*$" nil t)
+            (setq tags (mapcar #'string-trim
+                               (split-string (match-string 1) ","))))
+          (goto-char (point-min))
+          (when (re-search-forward "^date:\\s-*\"?\\(.+?\\)\"?\\s-*$" nil t)
+            (setq date (string-trim (match-string 1))))
+          (list :title title :tags tags :date date))))))
+
+(defun wiki--roam-nodes ()
+  "Query org-roam DB for all nodes. Return list of (id . plist) or nil.
+plist keys: :title :tags :backlinks (list of IDs)."
+  (when (fboundp 'org-roam-db-query)
+    (condition-case nil
+      (progn
+        ;; Don't call org-roam-db-sync here — it modifies files (assigning IDs)
+        ;; and breaks incremental hash comparison. Let org-roam-db-autosync-mode
+        ;; handle syncing on its own schedule.
+        (let* ((rows (org-roam-db-query
+                       [:select [id title properties] :from nodes]))
+               (link-rows (org-roam-db-query
+                            [:select [source dest] :from links
+                             :where (= type "id")]))
+               (backlink-map (make-hash-table :test 'equal))
+               result)
+          (dolist (link link-rows)
+            (let ((dest (nth 1 link))
+                  (src  (nth 0 link)))
+              (push src (gethash dest backlink-map))))
+          (dolist (row rows)
+            (let* ((id    (nth 0 row))
+                   (title (nth 1 row))
+                   (props (nth 2 row))
+                   ;; ALLTAGS in properties is like ":tag1:tag2:tag3:"
+                   (tags  (when props
+                            (let ((at (cdr (assoc "ALLTAGS" props))))
+                              (when at
+                                (seq-filter (lambda (s) (not (string-empty-p s)))
+                                            (split-string at ":" t))))))
+                   (backlinks (gethash id backlink-map)))
+              (push (cons id (list :title title
+                                   :tags tags
+                                   :backlinks backlinks))
+                    result)))
+          (nreverse result)))
+    (error nil))))
+
+(defun wiki-build-graph ()
+  "Build or incrementally update the wiki graph (graph.json + hashes.json).
+
+Uses file hash comparison for incremental updates: only re-scans files
+whose SHA-1 hash changed since last build.
+Returns the path to graph.json, or nil on failure."
+  (interactive)
+  (let* ((graph-dir (expand-file-name wiki-graph-dir))
+         (graph-file (expand-file-name wiki-graph-file))
+         (hash-file (expand-file-name wiki-graph-hash-file))
+         (wiki-root (expand-file-name wiki-dir))
+         ;; Load old hashes
+          (old-hashes (ignore-errors
+                        (wiki--read-hashes)))
+          ;; Load old graph for incremental merge
+          (old-graph (ignore-errors
+                       (wiki--read-graph)))
+          (old-files (aget "files" old-graph))
+
+         (new-hashes nil)
+         (files-data (make-hash-table :test 'equal))
+         ;; Collect all org files under wiki
+         (all-org-files (directory-files-recursively wiki-root "\\.org$" t))
+         ;; Exclude .git, .graph, .archive, agent-shell/transcripts
+         (org-files (seq-filter
+                     (lambda (f)
+                       (let ((rel (file-relative-name f wiki-root)))
+                         (not (or (string-match-p "^\\.\\(git\\|graph\\|archive\\)/" rel)
+                                  (string-match-p "^agent-shell/transcripts/" rel)))))
+                     all-org-files))
+         ;; Collect .archive/*.md files
+         (md-files (directory-files-recursively
+                    (expand-file-name ".archive" wiki-root) "\\.md$" t))
+         (changed-count 0)
+         (skipped-count 0))
+
+    ;; ── Process org files (incremental) ──
+    (dolist (f org-files)
+      (let* ((rel (file-relative-name f wiki-root))
+             (hash (wiki--file-hash f))
+             (old-hash (cdr (assoc rel old-hashes))))
+        (push (cons rel hash) new-hashes)
+        (if (and hash old-hash (string= hash old-hash) old-files)
+            ;; Hash unchanged → reuse old entry
+            (let ((old-entry (aget rel old-files)))
+              (when old-entry
+                (puthash rel
+                         (list :title (aget "t" old-entry)
+                               :tags (aget "g" old-entry)
+                               :date (aget "d" old-entry)
+                               :headings (aget "h" old-entry)
+                               :links (aget "l" old-entry))
+                         files-data))
+              (cl-incf skipped-count))
+          ;; Hash changed or new file → re-parse
+          (cl-incf changed-count)
+          (let ((meta (wiki--parse-org-metadata f)))
+            (when meta
+              (puthash rel meta files-data))))))
+
+    ;; ── Process .archive MD files (incremental) ──
+    (dolist (f md-files)
+        (let* ((rel (file-relative-name f wiki-root))
+               (hash (wiki--file-hash f))
+               (old-hash (cdr (assoc rel old-hashes))))
+          (push (cons rel hash) new-hashes)
+          (if (and hash old-hash (string= hash old-hash) old-files)
+              (let ((old-entry (aget rel old-files)))
+                (when old-entry
+                  (puthash rel
+                           (list :title (aget "t" old-entry)
+                                 :tags (aget "g" old-entry)
+                                 :date (aget "d" old-entry))
+                           files-data))
+                (cl-incf skipped-count))
+            (cl-incf changed-count)
+            (let ((meta (wiki--parse-md-frontmatter f)))
+              (when meta
+                 (puthash rel meta files-data))))))
+
+
+    ;; ── Build JSON structure ──
+    (make-directory graph-dir t)
+    (let ((files-json (make-hash-table :test 'equal))
+          (archive-json (make-hash-table :test 'equal))
+          (tags-index (make-hash-table :test 'equal))
+          (total 0))
+
+      ;; Collect files and archive entries
+      (maphash
+       (lambda (rel meta)
+         (let* ((title    (plist-get meta :title))
+                (tags     (plist-get meta :tags))
+                (date     (plist-get meta :date))
+                (headings (plist-get meta :headings))
+                (links    (plist-get meta :links))
+                (is-archive (string-prefix-p ".archive/" rel)))
+           (let ((entry (make-hash-table :test 'equal)))
+             (when title    (puthash "t" title entry))
+             (when tags     (puthash "g" (vconcat tags) entry))
+             (when date     (puthash "d" date entry))
+             (when headings (puthash "h" (vconcat headings) entry))
+             (when links    (puthash "l" (vconcat links) entry))
+             (if is-archive
+                 (puthash (substring rel 9) entry archive-json)
+               (puthash rel entry files-json)))
+           ;; Build tags index
+           (dolist (tag tags)
+             (let* ((existing (gethash tag tags-index))
+                    (new-list (cons rel existing)))
+               (puthash tag new-list tags-index)))
+           (cl-incf total)))
+       files-data)
+
+      ;; Query org-roam DB for roam nodes
+      (let ((roam-nodes (wiki--roam-nodes))
+            (roam-json (make-hash-table :test 'equal)))
+        (dolist (node roam-nodes)
+          (let* ((id    (car node))
+                 (meta  (cdr node))
+                 (title (plist-get meta :title))
+                 (tags  (plist-get meta :tags))
+                 (blinks (plist-get meta :backlinks))
+                 (entry (make-hash-table :test 'equal)))
+            (when title  (puthash "t" title entry))
+            (when tags   (puthash "g" (vconcat tags) entry))
+            (when blinks (puthash "l" (vconcat blinks) entry))
+            (puthash id entry roam-json)))
+        ;; Assemble root
+        (let ((root (make-hash-table :test 'equal))
+              (tags-final (make-hash-table :test 'equal)))
+          (puthash "v" 1 root)
+          (puthash "ts" (format-time-string "%Y-%m-%dT%H:%M:%S%z") root)
+          (puthash "n" total root)
+          (puthash "files" files-json root)
+          (when (> (hash-table-count archive-json) 0)
+            (puthash "archive" archive-json root))
+          (when (> (hash-table-count roam-json) 0)
+            (puthash "roam" roam-json root))
+          ;; Tags index: deduplicate
+          (maphash (lambda (tag files)
+                     (puthash tag (vconcat (delete-dups files)) tags-final))
+                   tags-index)
+          (puthash "tags" tags-final root)
+          ;; Write graph.json
+          (with-temp-file graph-file
+            (insert (json-encode root))))))
+
+    ;; ── Write hash cache (plain text, no JSON) ──
+    (wiki--write-hashes new-hashes)
+
+    (message "📊 Graph built: %d/%d changed, %d skipped → %s"
+             changed-count (+ changed-count skipped-count)
+             skipped-count graph-file)
+    graph-file))
+
+(defun wiki-graph-stale-p ()
+  "Return non-nil if graph.json is missing or stale."
+  (let ((f (expand-file-name wiki-graph-file)))
+    (or (not (file-exists-p f))
+        (> (- (float-time)
+              (float-time (file-attribute-modification-time
+                           (file-attributes f))))
+           wiki-graph-stale-seconds))))
+
+;; ── Startup auto-build (5s idle, stale check) ──
+(run-with-idle-timer 5 nil
+  (lambda ()
+    (when (and (boundp 'wiki-dir) wiki-dir
+               (file-directory-p (expand-file-name wiki-dir))
+               (wiki-graph-stale-p))
+      (message "📊 Wiki graph stale or missing, building...")
+      (wiki-build-graph))))
+
+;; ── Save debounce (30s idle after last save) ──
+(defvar wiki-graph--debounce-timer nil
+  "Timer for debounced graph rebuild on save.")
+
+(defun wiki-graph-after-save ()
+  "Debounced graph rebuild after saving wiki files."
+  (when (and buffer-file-name
+             (string-prefix-p (expand-file-name wiki-dir) buffer-file-name)
+             (string-match-p "\\.\\(org\\|md\\)$" buffer-file-name))
+    (when (timerp wiki-graph--debounce-timer)
+      (cancel-timer wiki-graph--debounce-timer))
+    (setq wiki-graph--debounce-timer
+          (run-with-idle-timer 30 nil #'wiki-build-graph))))
+
+(add-hook 'after-save-hook #'wiki-graph-after-save)
 
 ;; ──────────────────────────────────────────────────────────────
 ;; Keybindings & Hooks
@@ -424,7 +703,6 @@ Returns (timestamps . positions) cons."
   (define-key org-mode-map (kbd "C-c w a") #'wiki-archive-current-file)
   (define-key org-mode-map (kbd "C-c w f") #'wiki-ai-format-region)
   (define-key org-mode-map (kbd "C-c w F") #'wiki-ai-format-buffer)
-  (define-key org-mode-map (kbd "C-c w i") #'wiki-update-indices)
   (define-key org-mode-map (kbd "C-c w d") #'wiki-delete-file)
   (define-key org-mode-map (kbd "C-c w c") #'wiki-commit))
 

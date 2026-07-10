@@ -584,6 +584,84 @@ Claude Code에서 emacs MCP 서버에 연결하려면 socat이 필요합니다.
     :function #'mcp--handler-agent-shell-org-report))
 
 
+  ;; ── wiki graph tools ──────────────────────────────────────
+
+  (mcp-server-register-tool
+   (make-mcp-server-tool
+    :name "wiki_get_graph"
+    :title "Get Wiki Graph"
+    :description "위키 그래프 인덱스(graph.json)를 반환. 증분 업데이트 후 최신 그래프 제공."
+    :input-schema '((type . "object"))
+    :function (lambda (_args)
+                (condition-case err
+                    (let ((graph-file (wiki-build-graph)))
+                      (if (and graph-file (file-readable-p graph-file))
+                          (with-temp-buffer
+                            (insert-file-contents graph-file)
+                            (buffer-string))
+                        "{}"))
+                  (error (format "{\"error\": \"%s\"}"
+                                 (error-message-string err)))))))
+
+  (mcp-server-register-tool
+   (make-mcp-server-tool
+    :name "wiki_search_graph"
+    :title "Search Wiki Graph"
+    :description "태그, 제목, heading으로 wiki 그래프 검색. 매칭된 파일 경로 리스트 반환."
+    :input-schema '((type . "object")
+                    (properties
+                     . ((query . ((type . "string")
+                                  (description . "검색어 (태그 이름, 제목 일부, heading 키워드)")))
+                        (field . ((type . "string")
+                                  (enum . ["tag" "title" "heading" "all"])
+                                  (description . "검색 필드 (기본: all)")))))
+                    (required . ["query"]))
+    :function (lambda (args)
+                (let* ((query (cdr (assoc "query" args)))
+                       (field (or (cdr (assoc "field" args)) "all"))
+                       (graph-file (wiki-build-graph))
+                       (result (make-hash-table :test 'equal)))
+                  (if (and graph-file (file-readable-p graph-file))
+                       (let ((graph (ignore-errors
+                                       (wiki--read-graph))))
+                         (if (null graph)
+                             "[]"
+                           (let ((files-json (aget "files" graph))
+                                 (tags-idx (aget "tags" graph))
+                                 matches)
+                             ;; Tag search
+                             (when (member field '("tag" "all"))
+                               (maphash
+                                (lambda (tag file-list)
+                                  (when (string-match-p
+                                         (regexp-quote query) tag)
+                                    (dolist (f file-list)
+                                      (puthash f t result))))
+                                tags-idx))
+                             ;; Title/heading search
+                             (when (member field '("title" "heading" "all"))
+                               (maphash
+                                (lambda (path entry)
+                                  (let ((title (aget "t" entry))
+                                        (headings (aget "h" entry)))
+                                   (when (or (and title
+                                                   (string-match-p
+                                                    (regexp-quote query) title))
+                                             (and headings
+                                                  (cl-some
+                                                   (lambda (h)
+                                                     (string-match-p
+                                                      (regexp-quote query) h))
+                                                   headings)))
+                                     (puthash path t result))))
+                               files-json))
+                            ;; Build result list
+                            (let (path-list)
+                              (maphash (lambda (k _) (push k path-list)) result)
+                              (json-encode (vconcat (nreverse path-list)))))))
+                    "[]")))))
+
+
   ;; Start the Unix socket server after Emacs is fully loaded.
   (add-hook 'emacs-startup-hook
             (lambda ()
