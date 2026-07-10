@@ -347,6 +347,8 @@ Fixes corfu-map priority issue in eshell."
               (local-set-key (kbd "M-DEL") #'backward-delete-char))
              ;; M-x: Delete=문자단위(기본), M-DEL=단어단위
              ((eq this-command 'execute-extended-command)
+              (local-set-key (kbd "DEL") #'delete-backward-char)
+              (local-set-key (kbd "<delete>") #'delete-forward-char)
               (local-set-key (kbd "M-DEL") #'backward-kill-word)))))
 
 (use-package evil-mc :ensure t
