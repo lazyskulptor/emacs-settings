@@ -86,6 +86,9 @@
 ;; 17. MCP 서버
 (require 'mcp-server-setting)
 
+;; 18. MCP 서버 호출 로깅
+(require 'mcp-server-trace)
+
 ;;  end of file
 (provide 'required-packages)
 ;;; required-packages.el ends here
