@@ -386,6 +386,17 @@ Fixes corfu-map priority issue in eshell."
     (add-to-list 'exec-path-from-shell-variables var)))
 
 ;; ─────────────────────────────────────────────────────────────
+;; Emacs server (emacsclient 지원)
+;; ─────────────────────────────────────────────────────────────
+
+(require 'server)
+(server-force-delete)
+(unless (and (boundp 'server-process)
+             (processp server-process)
+             (process-live-p server-process))
+  (server-start))
+
+;; ─────────────────────────────────────────────────────────────
 ;; 기타 패키지
 ;; ─────────────────────────────────────────────────────────────
 
