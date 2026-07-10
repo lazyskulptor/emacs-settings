@@ -1,6 +1,11 @@
 ;;; wiki-tools.el --- Wiki management tools  -*- lexical-binding: t; -*-
 (require 'cl-lib)
 
+;; Disable auto-ID assignment by Emacs MCP tools (opencode).
+;; IDs are assigned manually via org-id-get-create when needed.
+(when (boundp 'mcp-server-emacs-tools-org-auto-id)
+  (setq mcp-server-emacs-tools-org-auto-id nil))
+
 ;; ox-md is loaded lazily — only needed for archive export
 (with-eval-after-load 'org
   (require 'ox-md))
@@ -60,18 +65,6 @@ This is the recursion signal — only follow directories with an active index."
     (when errors
       (user-error "Wiki validation failed: %s" (string-join errors ", ")))
     (message "✅ Validation passed")))
-
-(defun wiki-pre-commit-validate ()
-  "Git 커밋 전 스테이징된 .org 파일들 검증."
-  (interactive)
-  (let ((files (split-string (shell-command-to-string
-                              "git diff --cached --name-only --diff-filter=ACM | grep '\\.org$'") "\n" t)))
-    (dolist (f files)
-      (with-temp-buffer
-        (insert-file-contents f)
-        (org-mode)
-        (wiki-validate-buffer)))
-    (message "✅ All staged .org files validated")))
 
 ;; ──────────────────────────────────────────────────────────────
 ;; 2. Index Update
@@ -217,7 +210,7 @@ File path: %s" tmp-file base tmp-file)))
       (message "✅ Deleted: %s" rel))))
 
 ;; ──────────────────────────────────────────────────────────────
-;; 6. Org Structural Helpers
+;; 6. Org Structural Helpers (used by MCP tools in mcp-server-setting.el)
 ;; ──────────────────────────────────────────────────────────────
 (defun wiki-org-find-heading (file heading-title)
   "FILE에서 HEADING-TITLE heading의 위치를 (start . end)로 반환."
@@ -401,7 +394,17 @@ Returns (timestamps . positions) cons."
       (message "✅ Archived %s → %s" month archive-name))))
 
 ;; ──────────────────────────────────────────────────────────────
-;; 8. Auto-update on Save
+;; 8. Wiki Commit (opencode subagent)
+;; ──────────────────────────────────────────────────────────────
+(defun wiki-commit ()
+  "wiki-commit 서브에이전트 실행. 어디서든 wiki 커밋 가능."
+  (interactive)
+  (let ((default-directory (expand-file-name wiki-dir)))
+    (async-shell-command "opencode wiki-commit" "*wiki-commit*")
+    (message "🚀 wiki-commit subagent started (see *wiki-commit* buffer)")))
+
+;; ──────────────────────────────────────────────────────────────
+;; 9. Auto-update on Save
 ;; ──────────────────────────────────────────────────────────────
 (defun wiki-after-save-update-indices ()
   "wiki/ 또는 .archive/ 디렉토리 내 파일 저장 시 인덱스 자동 갱신."
@@ -422,10 +425,8 @@ Returns (timestamps . positions) cons."
   (define-key org-mode-map (kbd "C-c w f") #'wiki-ai-format-region)
   (define-key org-mode-map (kbd "C-c w F") #'wiki-ai-format-buffer)
   (define-key org-mode-map (kbd "C-c w i") #'wiki-update-indices)
-  (define-key org-mode-map (kbd "C-c w d") #'wiki-delete-file))
-
-(with-eval-after-load 'magit
-  (add-hook 'magit-pre-commit-hook #'wiki-pre-commit-validate))
+  (define-key org-mode-map (kbd "C-c w d") #'wiki-delete-file)
+  (define-key org-mode-map (kbd "C-c w c") #'wiki-commit))
 
 (provide 'wiki-tools)
 ;;; wiki-tools.el ends here
