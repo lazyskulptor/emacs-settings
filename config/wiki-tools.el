@@ -323,9 +323,11 @@ Returns (timestamps . positions) cons."
 (defun wiki-commit ()
   "wiki-commit 서브에이전트 실행. 어디서든 wiki 커밋 가능."
   (interactive)
-  (let ((default-directory (expand-file-name wiki-dir)))
-    (async-shell-command "opencode wiki-commit" "*wiki-commit*")
-    (message "🚀 wiki-commit subagent started (see *wiki-commit* buffer)")))
+  (async-shell-command
+   (format "cd %s && opencode wiki-commit"
+           (shell-quote-argument (expand-file-name wiki-dir)))
+   "*wiki-commit*")
+  (message "🚀 wiki-commit subagent started (see *wiki-commit* buffer)"))
 
 ;; ──────────────────────────────────────────────────────────────
 ;; 8. Graph Index
