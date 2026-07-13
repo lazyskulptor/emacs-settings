@@ -324,7 +324,7 @@ Returns (timestamps . positions) cons."
   "wiki-commit 서브에이전트 실행. 어디서든 wiki 커밋 가능."
   (interactive)
   (let* ((wiki-root (expand-file-name wiki-dir))
-         (cmd (format "cd %s && exec opencode run .opencode/agent/wiki-commit.md"
+         (cmd (format "cd %s && exec opencode run \"@wiki-commit\""
                       (shell-quote-argument wiki-root))))
     (async-shell-command cmd "*wiki-commit*")
     (message "🚀 wiki-commit subagent started (see *wiki-commit* buffer)")))
