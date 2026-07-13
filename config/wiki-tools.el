@@ -327,7 +327,7 @@ Returns (timestamps . positions) cons."
          (cmd (format "cd %s && exec opencode run .opencode/agent/wiki-commit.md"
                       (shell-quote-argument wiki-root))))
     (async-shell-command cmd "*wiki-commit*")
-    (message "🚀 wiki-commit subagent started (see *wiki-commit* buffer)"))
+    (message "🚀 wiki-commit subagent started (see *wiki-commit* buffer)")))
 
 ;; ──────────────────────────────────────────────────────────────
 ;; 8. Graph Index
