@@ -6,10 +6,6 @@
 (when (boundp 'mcp-server-emacs-tools-org-auto-id)
   (setq mcp-server-emacs-tools-org-auto-id nil))
 
-;; ox-md is loaded lazily — only needed for archive export
-(with-eval-after-load 'org
-  (require 'ox-md))
-
 ;; ──────────────────────────────────────────────────────────────
 ;; 0. Internal Helpers
 ;; ──────────────────────────────────────────────────────────────
@@ -47,47 +43,7 @@
 ;; (Index Update section removed — replaced by Graph Index, see section 8)
 
 ;; ──────────────────────────────────────────────────────────────
-;; 2. Archive (AI → MD)
-;; ──────────────────────────────────────────────────────────────
-(defun wiki-archive-current-file ()
-  "현재 .org 파일을 AI를 통해 압축 요약하여 MD로 변환해 wiki/.archive/ 에 저장."
-  (interactive)
-  (unless buffer-file-name
-    (user-error "Buffer not visiting a file"))
-  (unless (string-match "\\.org$" buffer-file-name)
-    (user-error "Only .org files can be archived"))
-  (wiki-validate-buffer)
-
-  (let* ((org-path buffer-file-name)
-         (base (file-name-sans-extension (file-name-nondirectory org-path)))
-         (md-path (expand-file-name (concat base ".md") wiki-archive-dir))
-         (tmp-file (make-temp-file "wiki-archive-" nil ".org")))
-
-    (with-temp-file tmp-file
-      (insert-file-contents org-path))
-
-    (let ((prompt (format "Read the file at %s and summarize it into a clean, AI-friendly Markdown archive.
-Rules:
-1. Extract metadata (#+title, #+tags, #+date) into YAML frontmatter.
-2. Use Q&A format for Problems & Solutions.
-3. List Key Decisions, Lessons Learned, and Achievements concisely.
-4. Include References using relative links (e.g. [](../wiki/projects/%s)).
-5. Output ONLY the Markdown content, no conversational text.
-
-File path: %s" tmp-file base tmp-file)))
-      (message "🤖 Archiving via OpenCode Agent (this may take a moment)...")
-      (let ((resp (shell-command-to-string (format "opencode run %s" (shell-quote-argument prompt)))))
-        (delete-file tmp-file)
-        (if (and resp (> (length resp) 0))
-            (progn
-              (make-directory wiki-archive-dir t)
-              (with-temp-file md-path (insert resp))
-              (wiki-build-graph)
-              (message "✅ Archived to: %s" md-path))
-          (user-error "OpenCode Agent returned empty response"))))))
-
-;; ──────────────────────────────────────────────────────────────
-;; 3. AI Formatting
+;; 2. AI Formatting
 ;; ──────────────────────────────────────────────────────────────
 (defun wiki-ai-format-region (start end &optional instructions)
   "선택 영역을 로컬 OpenCode Agent (opencode run) 로 포맷팅."
@@ -702,7 +658,6 @@ Returns the path to graph.json, or nil on failure."
 ;; ──────────────────────────────────────────────────────────────
 (with-eval-after-load 'org
   (define-key org-mode-map (kbd "C-c w v") #'wiki-validate-buffer)
-  (define-key org-mode-map (kbd "C-c w a") #'wiki-archive-current-file)
   (define-key org-mode-map (kbd "C-c w f") #'wiki-ai-format-region)
   (define-key org-mode-map (kbd "C-c w F") #'wiki-ai-format-buffer)
   (define-key org-mode-map (kbd "C-c w d") #'wiki-delete-file)
