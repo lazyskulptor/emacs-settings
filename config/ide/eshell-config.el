@@ -23,7 +23,8 @@
                 (abbreviate-propt (split-string (abbreviate-file-name (eshell/pwd)) "/"))
                 (if (= (user-uid) 0) " # " " ✗ "))))
 
-(setq eshell-prompt-regexp "^[^#$✗\n]* [#$✗] ")
+(setq eshell-prompt-regexp "^[^#$✗
+]* [#$✗] ")
 
 ;; ─────────────────────────────────────────────────────────────
 ;; bash-completion 로드
@@ -114,6 +115,14 @@ Usage: el (expression) or el expression"
            (expr (read expr-str)))
       (eval expr))))
 
+(with-eval-after-load 'em-unix
+  (defun eshell/grep (&rest args)
+    "In a pipeline, use plain external grep. Standalone: use Emacs grep."
+    (if eshell-in-pipeline-p
+        (throw 'eshell-external
+               (eshell-external-command "grep" args))
+      (eshell-grep "grep" (append '("-H") args) t))))
+
 ;; ─────────────────────────────────────────────────────────────
 ;; eshell 모드 훅
 ;; ─────────────────────────────────────────────────────────────
@@ -150,7 +159,7 @@ Usage: el (expression) or el expression"
 
 ;; ff alias → 파일 경로 completion (TRAMP 지원)
 (defun pcomplete/ff ()
-  "Completion for ff (find-file alias)."
+  "Completion for ff (find-file)."
   (while (pcomplete-here (pcomplete-entries))))
 
 ;; find-file → 파일 경로 completion (TRAMP 지원)
