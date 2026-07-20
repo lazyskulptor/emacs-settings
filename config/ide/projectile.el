@@ -17,6 +17,10 @@
   :ensure t
   :after projectile)
 
+(use-package ripgrep
+  :ensure t
+  :after projectile)
+
 (projectile-register-project-type 'maven '("pom.xml")
                                   :project-file "pom.xml"
                                   :compile "./mvnw -B clean install"
