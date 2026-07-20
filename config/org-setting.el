@@ -29,9 +29,11 @@
 (use-package org-roam :ensure t
   :init (setq org-roam-v2-ack t)
   :custom
-  (org-roam-directory (file-truename "~/Workspace/wiki/roam/"))
+  (org-roam-directory (file-truename "~/Workspace/wiki/"))
+  (org-roam-file-exclude-regexp '("^\\(?:agent-shell\\|spiritual\\|study\\|scripts\\|projects\\|\\.\\(?:git\\|archive\\|graph\\)\\)/"))
   (org-roam-dailies-directory "daily/")
   (org-roam-completion-everywhere t)
+  (org-roam-graph-viewer "open")
   :bind (("C-c n l" . org-roam-buffer-toggle)
          ("C-c n f" . org-roam-node-find)
          ("C-c n g" . org-roam-graph)
