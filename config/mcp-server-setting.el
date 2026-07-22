@@ -8,10 +8,35 @@
 (defvar mcp-server--pending-edit-info nil
   "Pending edit state for edit_buffer_with_preview: alist with symbol keys.")
 
+(defvar mcp--temp-buffers nil
+  "List of buffers opened by custom MCP tool calls.
+Only newly opened buffers are tracked; pre-existing buffers are
+not added.  Set to nil by `mcp--cleanup-temp-buffers'.")
+
 (defun mcp--buf-ensure-open (file)
-  "Return a live buffer for FILE; open silently if not already visiting."
-  (or (find-buffer-visiting file)
-      (find-file-noselect file t)))
+  "Return a live buffer for FILE; open silently if not already visiting.
+Tracks newly opened buffers in `mcp--temp-buffers' for later cleanup."
+  (let* ((was-open (find-buffer-visiting file))
+         (buf (or was-open (find-file-noselect file t))))
+    (unless was-open
+      (push buf mcp--temp-buffers))
+    buf))
+
+(defun mcp--cleanup-temp-buffers ()
+  "Kill clean unmodified temp buffers opened by `mcp--buf-ensure-open'.
+Preserves user-opened and modified buffers."
+  (dolist (buf mcp--temp-buffers)
+    (when (and (buffer-live-p buf)
+               (not (buffer-modified-p buf)))
+      (kill-buffer buf)))
+  (setq mcp--temp-buffers nil))
+
+(defun mcp--stop-server-on-exit ()
+  "Stop the MCP server during Emacs shutdown, if it is running.
+Idempotent and safe to register multiple times."
+  (when (and (boundp 'mcp-server-current-transport)
+             mcp-server-current-transport)
+    (ignore-errors (mcp-server-stop))))
 
 (defun mcp--git-run (dir &rest args)
   "Run git ARGS in DIR and return trimmed stdout."
@@ -144,23 +169,25 @@
          (line (or (cdr (assoc "line" args)) 1))
          (col  (or (cdr (assoc "column" args)) 0))
          (buf  (mcp--buf-ensure-open file)))
-    (with-current-buffer buf
-      (save-excursion
-        (goto-char (point-min))
-        (forward-line (1- line))
-        (forward-char (min col (- (line-end-position) (point))))
-        (let* ((id      (thing-at-point 'symbol t))
-               (backend (xref-find-backend))
-               (defs    (and id backend
-                             (condition-case nil
-                                 (xref-backend-definitions backend id)
-                               (error nil)))))
-          (cond
-           ((null id)    "No symbol at position.")
-           ((null defs)  (format "No definition found for '%s'." id))
-           (t (mapconcat (lambda (x)
-                           (mcp--xref-location-string (xref-item-location x)))
-                         defs "\n"))))))))
+    (unwind-protect
+        (with-current-buffer buf
+          (save-excursion
+            (goto-char (point-min))
+            (forward-line (1- line))
+            (forward-char (min col (- (line-end-position) (point))))
+            (let* ((id      (thing-at-point 'symbol t))
+                   (backend (xref-find-backend))
+                   (defs    (and id backend
+                                 (condition-case nil
+                                     (xref-backend-definitions backend id)
+                                   (error nil)))))
+              (cond
+               ((null id)    "No symbol at position.")
+               ((null defs)  (format "No definition found for '%s'." id))
+               (t (mapconcat (lambda (x)
+                               (mcp--xref-location-string (xref-item-location x)))
+                             defs "\n"))))))
+      (mcp--cleanup-temp-buffers))))
 
 ;;; ── Tool: find_references ────────────────────────────────────────────
 
@@ -169,37 +196,41 @@
          (line (or (cdr (assoc "line" args)) 1))
          (col  (or (cdr (assoc "column" args)) 0))
          (buf  (mcp--buf-ensure-open file)))
-    (with-current-buffer buf
-      (save-excursion
-        (goto-char (point-min))
-        (forward-line (1- line))
-        (forward-char (min col (- (line-end-position) (point))))
-        (let* ((id      (thing-at-point 'symbol t))
-               (backend (xref-find-backend))
-               (refs    (and id backend
-                             (condition-case nil
-                                 (xref-backend-references backend id)
-                               (error nil)))))
-          (cond
-           ((null id)   "No symbol at position.")
-           ((null refs) (format "No references found for '%s'." id))
-           (t (mapconcat (lambda (x)
-                           (mcp--xref-location-string (xref-item-location x)))
-                         refs "\n"))))))))
+    (unwind-protect
+        (with-current-buffer buf
+          (save-excursion
+            (goto-char (point-min))
+            (forward-line (1- line))
+            (forward-char (min col (- (line-end-position) (point))))
+            (let* ((id      (thing-at-point 'symbol t))
+                   (backend (xref-find-backend))
+                   (refs    (and id backend
+                                 (condition-case nil
+                                     (xref-backend-references backend id)
+                                   (error nil)))))
+              (cond
+               ((null id)   "No symbol at position.")
+               ((null refs) (format "No references found for '%s'." id))
+               (t (mapconcat (lambda (x)
+                               (mcp--xref-location-string (xref-item-location x)))
+                             refs "\n"))))))
+      (mcp--cleanup-temp-buffers))))
 
 ;;; ── Tool: get_imenu_symbols ──────────────────────────────────────────
 
 (defun mcp--handler-get-imenu-symbols (args)
   (let* ((file (cdr (assoc "file" args)))
          (buf  (mcp--buf-ensure-open file)))
-    (with-current-buffer buf
-      (condition-case err
-          (let* ((raw (imenu--make-index-alist t))
-                 (idx (seq-remove (lambda (i) (equal (cdr i) -99)) raw)))
-            (if idx
-                (mcp--imenu-format idx "")
-              "No symbols found."))
-        (error (format "imenu error: %s" err))))))
+    (unwind-protect
+        (with-current-buffer buf
+          (condition-case err
+              (let* ((raw (imenu--make-index-alist t))
+                     (idx (seq-remove (lambda (i) (equal (cdr i) -99)) raw)))
+                (if idx
+                    (mcp--imenu-format idx "")
+                  "No symbols found."))
+            (error (format "imenu error: %s" err))))
+      (mcp--cleanup-temp-buffers))))
 
 ;;; ── Tool: get_tree_sitter_node ───────────────────────────────────────
 
@@ -208,25 +239,27 @@
          (line (or (cdr (assoc "line" args)) 1))
          (col  (or (cdr (assoc "column" args)) 0))
          (buf  (mcp--buf-ensure-open file)))
-    (with-current-buffer buf
-      (cond
-       ((not (fboundp 'treesit-available-p))
-        "Tree-sitter not compiled into this Emacs.")
-       ((not (treesit-available-p))
-        "Tree-sitter not available in this buffer.")
-       (t
-        (save-excursion
-          (goto-char (point-min))
-          (forward-line (1- line))
-          (forward-char (min col (- (line-end-position) (point))))
-          (let ((node (treesit-node-at (point))))
-            (if node
-                (format "type : %s\ntext : %s\nrange: %d-%d"
-                        (treesit-node-type node)
-                        (treesit-node-text node t)
-                        (treesit-node-start node)
-                        (treesit-node-end node))
-              "No tree-sitter node at position."))))))))
+    (unwind-protect
+        (with-current-buffer buf
+          (cond
+           ((not (fboundp 'treesit-available-p))
+            "Tree-sitter not compiled into this Emacs.")
+           ((not (treesit-available-p))
+            "Tree-sitter not available in this buffer.")
+           (t
+            (save-excursion
+              (goto-char (point-min))
+              (forward-line (1- line))
+              (forward-char (min col (- (line-end-position) (point))))
+              (let ((node (treesit-node-at (point))))
+                (if node
+                    (format "type : %s\ntext : %s\nrange: %d-%d"
+                            (treesit-node-type node)
+                            (treesit-node-text node t)
+                            (treesit-node-start node)
+                            (treesit-node-end node))
+                  "No tree-sitter node at position."))))))
+      (mcp--cleanup-temp-buffers))))
 
 ;;; ── Tool: agent_shell_org_report ────────────────────────────────────
 
@@ -336,7 +369,8 @@ Claude Code에서 emacs MCP 서버에 연결하려면 socat이 필요합니다.
 
 (use-package mcp-server
   :straight (mcp-server :type git :host github :repo "rhblind/emacs-mcp-server"
-                        :files (:defaults "tools/*.el"))
+                        :files (:defaults "tools/*.el")
+                        :local-repo "/Users/hyeonjunpark/Workspace/contribute/emacs-mcp-server")
   :vc (:url "https://github.com/rhblind/emacs-mcp-server" :rev :newest)
   :config
   ;; Socket lives inside ~/.emacs.d/.local/cache/
@@ -667,9 +701,32 @@ Claude Code에서 emacs MCP 서버에 연결하려면 socat이 필요합니다.
             (lambda ()
               (condition-case err
                   (progn
+                    ;; Clean stale numbered sockets before starting
+                    (let ((dir (expand-file-name ".local/cache/" user-emacs-directory)))
+                      (make-directory dir t)
+                      (dolist (f (directory-files dir t "^emacs-mcp-server-.*\\.sock$"))
+                        (condition-case nil
+                            (progn
+                              ;; Liveness test: try connecting
+                              (let ((test-proc (make-network-process
+                                                :name "mcp-stale-test"
+                                                :family 'local
+                                                :service f
+                                                :noquery t)))
+                                (delete-process test-proc))
+                              ;; Connected — socket is active, skip
+                              nil)
+                          (error
+                           ;; Connection failed — socket is stale, remove
+                           (delete-file f)
+                           (message "mcp-server: removed stale socket %s"
+                                    (file-name-nondirectory f))))))
                     (mcp-server-start-unix)
                     (mcp--suppress-process-queries))
                 (error (message "emacs-mcp-server start failed: %s" err)))))
+
+  ;; Clean shutdown on exit (named function → add-hook deduplicates)
+  (add-hook 'kill-emacs-hook #'mcp--stop-server-on-exit)
 
   ;; Also suppress query flag on client processes created after connection.
   (advice-add 'mcp-server-transport-unix--server-filter :after
