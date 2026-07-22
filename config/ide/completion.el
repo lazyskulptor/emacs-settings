@@ -15,7 +15,41 @@
   (vertico-mode)
   :config
   (setq vertico-count 10)
-  (setq vertico-cycle t))
+  (setq vertico-cycle t)
+  (require 'vertico-directory)
+  (define-key vertico-map (kbd "RET") #'vertico-directory-enter)
+  (add-hook 'rfn-eshadow-update-overlay-hook #'vertico-directory-tidy))
+
+;; --- Minibuffer ~ expansion (hook setup) ---
+
+(defun my-vertico-setup ()
+  "Setup ~ expansion in find-file minibuffer."
+  (when minibuffer-completing-file-name
+    (add-hook 'post-self-insert-hook #'my-vertico-expand-tilde nil t)))
+
+(defun my-vertico-expand-tilde ()
+  "When ~ is typed at end of default dir, replace with ~/."
+  (let ((char (and (char-before) (char-before))))
+    (when (and (eq char ?~)
+               (minibufferp)
+               minibuffer-completing-file-name)
+      (let* ((content (minibuffer-contents))
+             (len (length content))
+             (prompt-end (minibuffer-prompt-end)))
+        ;; Check: content = ~/path/~  → exactly 2 tildes, one at each end
+        (when (and (>= len 2)
+                   (eq (aref content 0) ?~)
+                   (eq (aref content (1- len)) ?~))
+          (let ((tilde-count 0) (i 0))
+            (while (< i len)
+              (when (eq (aref content i) ?~)
+                (cl-incf tilde-count))
+              (cl-incf i))
+            (when (= tilde-count 2)
+              (delete-region prompt-end (1- (point-max)))
+              (insert ?/))))))))
+
+(add-hook 'minibuffer-setup-hook #'my-vertico-setup)
 
 ;; ─────────────────────────────────────────────────────────────
 ;; Corfu - inline popup completion
