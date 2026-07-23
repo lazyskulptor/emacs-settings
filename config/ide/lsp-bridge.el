@@ -28,14 +28,25 @@
   (setq lsp-bridge-enable-with-tramp t)  ; TRAMP 지원 활성화
   (setq lsp-bridge-python-command (concat my/emacs-dir "/.venv/bin/python"))
   (setq lsp-bridge-user-langserver-dir (concat my/emacs-dir "/lsp-user-config"))
-  ;; PATH/exec-path에 .venv/bin와 node_modules/.bin 즉시 등록
+  ;; PATH/exec-path에 Emacs 내부 바이너리 디렉토리 즉시 등록
   ;; (idle-timer bootstrap보다 lsp-bridge가 먼저 시작될 수 있으므로)
   (let ((venv-bin (concat my/emacs-dir "/.venv/bin"))
         (node-bin (concat my/emacs-dir "/node_modules/.bin")))
     (dolist (dir (list venv-bin node-bin))
-      (unless (member dir exec-path)
-        (setenv "PATH" (concat dir ":" (getenv "PATH")))
-        (add-to-list 'exec-path dir))))
+      (when (file-directory-p dir)
+        (unless (member dir exec-path)
+          (setenv "PATH" (concat dir ":" (getenv "PATH")))
+          (add-to-list 'exec-path dir))))
+    ;; .cache/lsp/<name>/ 중 <name> 실행파일이 있는 dir만 exec-path에 등록
+    (let ((lsp-cache (concat my/emacs-dir "/.cache/lsp")))
+      (dolist (subdir (directory-files lsp-cache t "^[^.]"))
+        (when (file-directory-p subdir)
+          (let* ((name (file-name-nondirectory (directory-file-name subdir)))
+                 (executable (expand-file-name name subdir)))
+            (when (file-executable-p executable)
+              (unless (member subdir exec-path)
+                (setenv "PATH" (concat subdir ":" (getenv "PATH")))
+                (add-to-list 'exec-path subdir)))))))))
   :hook ((python-mode . lsp-bridge-mode)
          (python-ts-mode . lsp-bridge-mode)
          (go-mode . lsp-bridge-mode)
@@ -109,7 +120,8 @@
                (concat my/emacs-dir "/.cache/lsp/eclipse.jdt.ls/config_mac"))))
 
   ;; ── Clojure (clojure-lsp) ─────────────────────────────────
-  (setq lsp-bridge-clojure-lsp-server-command (list "bash" "-c" clojure-lsp-path))
+  (setq lsp-bridge-clojure-lsp-server-command
+        (list "bash" "-c" (expand-file-name clojure-lsp-path)))
 
   ;; ── Dart/Flutter ──────────────────────────────────────────
   (setq lsp-bridge-dart-analysis-server-command
@@ -327,7 +339,7 @@ Adds node_modules/.bin to PATH on success."
 ;; 설치 진행 중(프로세스 살아있음)이면 기다리라는 메시지.
 
 (defun my/lsp-bridge--check-deps-before-start (&rest _)
-  "Prevent lsp-bridge-mode if .venv or node_modules is not ready."
+  "Prevent lsp-bridge-mode if required dependencies are not ready."
   (cond
    ((derived-mode-p 'python-mode 'python-ts-mode)
     (let ((py (concat my/emacs-dir "/.venv/bin/python")))
@@ -336,19 +348,101 @@ Adds node_modules/.bin to PATH on success."
             (user-error "lsp-bridge: installing .venv... wait a moment and retry")
           (user-error "lsp-bridge: .venv not found. Run uv sync --directory ~/.emacs.d")))))
    ((derived-mode-p 'js-mode 'js-ts-mode 'typescript-mode 'typescript-ts-mode
-                    'yaml-ts-mode 'bash-mode 'sh-mode 'bash-ts-mode
-                    'json-mode 'json-ts-mode 'html-mode 'web-mode 'groovy-mode)
+                     'yaml-ts-mode 'bash-mode 'sh-mode 'bash-ts-mode
+                     'json-mode 'json-ts-mode 'html-mode 'web-mode 'groovy-mode)
     (let ((nm (concat my/emacs-dir "/node_modules")))
       (unless (file-directory-p nm)
         (if (process-live-p (get-process "npm-install"))
             (user-error "lsp-bridge: installing node_modules... wait a moment and retry")
-          (user-error "lsp-bridge: node_modules not found. Run npm install --prefix ~/.emacs.d")))))))
+          (user-error "lsp-bridge: node_modules not found. Run npm install --prefix ~/.emacs.d")))))
+   ((derived-mode-p 'go-mode 'go-ts-mode)
+    (let ((bin (concat my/emacs-dir "/.cache/lsp/gopls/gopls")))
+      (unless (file-executable-p bin)
+        (user-error "lsp-bridge: gopls not found. Run `M-x my/install-emacs-lsp-tools`"))))
+   ((derived-mode-p 'clojure-mode 'clojure-ts-mode 'clojurec-mode 'clojurescript-mode)
+    (let ((bin (concat my/emacs-dir "/.cache/lsp/clojure-lsp/clojure-lsp")))
+      (unless (file-executable-p bin)
+        (user-error "lsp-bridge: clojure-lsp not found. Run `bash ~/.emacs.d/scripts/install-clojure-lsp.sh`"))))
+   ((derived-mode-p 'terraform-mode)
+    (let ((bin (concat my/emacs-dir "/.cache/lsp/terraform-ls/terraform-ls")))
+      (unless (file-executable-p bin)
+        (user-error "lsp-bridge: terraform-ls not found. Run `M-x my/install-emacs-lsp-tools`")))))))
 
 (advice-add 'lsp-bridge-mode :before #'my/lsp-bridge--check-deps-before-start)
 
 ;; ─────────────────────────────────────────────────────────────
 ;; 부트스트랩 실행 (idle-timer: exec-path-from-shell 이후 보장)
 ;; ─────────────────────────────────────────────────────────────
+
+;; ─────────────────────────────────────────────────────────────
+;; Go binary bootstrap (범용)
+;; ─────────────────────────────────────────────────────────────
+;; lsp-bridge가 사용하는 Go 기반 LSP 서버들(gopls, terraform-ls, dlv 등)을
+;; ~/.emacs.d/.cache/lsp/<name>/ 아래에 설치·관리한다.
+;; GOBIN을 각 디렉토리로 지정한 go install로 바이너리가 설치된다.
+
+(defcustom my/go-lsp-binaries
+  `(("gopls"         . "golang.org/x/tools/gopls@latest")
+    ("terraform-ls"  . "github.com/hashicorp/terraform-ls@latest"))
+  "Alist of (binary-name . go-package-path) for Go LSP servers.
+These are installed under ~/.emacs.d/.cache/lsp/<name>/.")
+
+(defcustom my/go-development-tools
+  `(("dlv"           . "github.com/go-delve/delve/cmd/dlv@latest")
+    ("gomodifytags"  . "github.com/fatih/gomodifytags@latest")
+    ("impl"          . "github.com/josharian/impl@latest"))
+  "Alist of (binary-name . go-package-path) for Go development helpers.
+These are installed under ~/.emacs.d/.cache/lsp/<name>/.")
+
+(defun my/ensure-emacs-go-binary (binary-name go-package)
+  "Ensure BINARY-NAME exists in ~/.emacs.d/.cache/lsp/BINARY-NAME/.
+GO-PACKAGE is the full 'go install' path (e.g. \"golang.org/x/tools/gopls@latest\").
+Installs asynchronously if missing, adds directory to PATH on success."
+  (let* ((binary-dir (concat my/emacs-dir "/.cache/lsp/" binary-name))
+         (binary (concat binary-dir "/" binary-name)))
+    (cond
+     ((file-executable-p binary)
+      (my/add-dir-to-path binary-dir))
+     ((not (executable-find "go"))
+      (warn "go not found in PATH. Install from https://go.dev"))
+     (t
+      (make-directory binary-dir t)
+      (message "go: installing %s to %s (async)..." binary-name binary-dir)
+      (make-process
+       :name (format "go-binary-install-%s" binary-name)
+       :buffer (format "*go-install-%s*" binary-name)
+       :command (list "sh" "-c" (format "GOBIN=\"%s\" go install \"%s\"" binary-dir go-package))
+       :sentinel
+       (lambda (proc _event)
+         (when (eq (process-status proc) 'exit)
+           (if (= (process-exit-status proc) 0)
+               (progn
+                 (my/add-dir-to-path binary-dir)
+                 (message "go: %s installed to %s" binary-name binary-dir))
+             (warn "%s install failed. Check *go-install-%s* buffer for details"
+                   binary-name binary-name)))))))))
+
+;; ── 명시적 설치 명령어 ─────────────────────────────────
+;; LSP 서버: `M-x my/install-emacs-lsp-tools`
+;; Go 개발 도구: `M-x my/install-emacs-go-development-tools`
+;; Clojure LSP: `bash ~/.emacs.d/scripts/install-clojure-lsp.sh`
+
+;;;###autoload
+(defun my/install-emacs-lsp-tools ()
+  "Install Go-based LSP servers (gopls, terraform-ls) into ~/.emacs.d/.cache/lsp/<name>/.
+Runs `go install' with GOBIN for each entry in `my/go-lsp-binaries'.
+For Clojure LSP run `bash ~/.emacs.d/scripts/install-clojure-lsp.sh'."
+  (interactive)
+  (dolist (entry my/go-lsp-binaries)
+    (my/ensure-emacs-go-binary (car entry) (cdr entry))))
+
+;;;###autoload
+(defun my/install-emacs-go-development-tools ()
+  "Install Go development helpers (dlv, gomodifytags, impl) into ~/.emacs.d/.cache/lsp/<name>/.
+Runs `go install' with GOBIN for each entry in `my/go-development-tools'."
+  (interactive)
+  (dolist (entry my/go-development-tools)
+    (my/ensure-emacs-go-binary (car entry) (cdr entry))))
 
 (run-with-idle-timer 3 nil
   (lambda ()
