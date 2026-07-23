@@ -138,6 +138,18 @@ Works with TRAMP remote files via `compile'."
             (local-set-key (kbd "C-c y s") 'my/yaml-select-schema)))
 
 ;; ─────────────────────────────────────────────────────────────
+;; Terraform / OpenTofu (HCL)
+;; ─────────────────────────────────────────────────────────────
+
+(use-package terraform-mode
+  :ensure t
+  :config
+  (setq terraform-indent-level 2))
+
+(add-to-list 'auto-mode-alist '("\\.tf\\'" . terraform-mode))
+(add-to-list 'auto-mode-alist '("\\.tfvars\\'" . terraform-mode))
+
+;; ─────────────────────────────────────────────────────────────
 ;; auto-mode-alist 설정
 ;; ─────────────────────────────────────────────────────────────
 

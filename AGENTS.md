@@ -68,23 +68,70 @@ Each file ends with `(provide '<module-name>)` and is loaded via `(require ...)`
 
 ## External Dependencies
 
+모든 LSP 서버 바이너리는 **`~/.emacs.d/` 내부**에서 관리한다. 글로벌 설치(Homebrew 등)는 bootstrap용 패키지 매니저가 아니면 사용하지 않는다.
+
+### Python LSP (`.venv/bin/`)
+`pyproject.toml`이 관리하며 `uv sync`로 설치:
 ```sh
-# 관리형 의존성 — .emacs.d/pyproject.toml + .emacs.d/package.json
-#   Python (epc, sexpdata, watchdog, orjson, pyright, debugpy, grip)
-#   Node  (typescript-language-server, yaml-language-server, bash-language-server,
-#          vscode-langservers-extracted, groovy-language-server, eslint)
-#   uv sync --directory ~/.emacs.d && npm install --prefix ~/.emacs.d
+uv sync --directory ~/.emacs.d
+```
+- `basedpyright`, `debugpy`, `epc`, `sexpdata`, `watchdog`, `orjson`, `grip`
 
-# Clojure
-brew install clojure-lsp
+### Node LSP (`node_modules/.bin/`)
+`package.json`이 관리하며 `npm install`로 설치:
+```sh
+npm install --prefix ~/.emacs.d
+```
+- `typescript-language-server`, `yaml-language-server`, `bash-language-server`
+- `vscode-langservers-extracted`, `groovy-language-server`, `eslint`
 
-# Go
-go install golang.org/x/tools/gopls@latest
-go install github.com/go-delve/delve/cmd/dlv@latest
-go install github.com/fatih/gomodifytags@latest
-go install github.com/josharian/impl@latest
+### Go LSP (`~/.emacs.d/.cache/lsp/<name>/`)
+설치는 Emacs 명령으로 수행 (자동 설치 없음):
 
-# Python (CLI만 — 패키지는 pyproject.toml이 관리)
+```sh
+# LSP 서버 (gopls, terraform-ls)
+M-x my/install-emacs-lsp-tools
+
+# Go 개발 도구 (dlv, gomodifytags, impl)
+M-x my/install-emacs-go-development-tools
+```
+
+또는 개별 `go install`:
+```sh
+mkdir -p ~/.emacs.d/.cache/lsp/gopls && GOBIN=~/.emacs.d/.cache/lsp/gopls go install golang.org/x/tools/gopls@latest
+mkdir -p ~/.emacs.d/.cache/lsp/terraform-ls && GOBIN=~/.emacs.d/.cache/lsp/terraform-ls go install github.com/hashicorp/terraform-ls@latest
+mkdir -p ~/.emacs.d/.cache/lsp/dlv && GOBIN=~/.emacs.d/.cache/lsp/dlv go install github.com/go-delve/delve/cmd/dlv@latest
+mkdir -p ~/.emacs.d/.cache/lsp/gomodifytags && GOBIN=~/.emacs.d/.cache/lsp/gomodifytags go install github.com/fatih/gomodifytags@latest
+mkdir -p ~/.emacs.d/.cache/lsp/impl && GOBIN=~/.emacs.d/.cache/lsp/impl go install github.com/josharian/impl@latest
+```
+
+### Clojure LSP (`~/.emacs.d/.cache/lsp/clojure-lsp/clojure-lsp`)
+GitHub Release에 의존하지 않음. upstream `master` branch 소스를 `~/.emacs.d/.cache/src/clojure-lsp/`에 shallow clone하고 `bb prod-cli`로 build. Script가 git/Clojure CLI/JDK를 자동 확인:
+
+```sh
+bash ~/.emacs.d/scripts/install-clojure-lsp.sh
+```
+
+Build 도구인 Babashka (`bb`)는 `~/.emacs.d/.cache/tools/bb/bb`에 관리:
+
+```sh
+bash ~/.emacs.d/scripts/install-babashka.sh
+```
+
+Clojure LSP binary (`clojure-lsp`)는 `.cache/lsp/`에, build tool (`bb`)는 `.cache/tools/`에 위치. Clojure CLI와 JDK는 source build 시 필요한 runtime prerequisite이며 system/global에 설치한다.
+
+### Java LSP (JDT.LS — `~/.emacs.d/.cache/lsp/eclipse.jdt.ls/`)
+`lsp-bridge-install-jdtls` 명령어로 설치. Lombok JAR은 `~/.emacs.d/lsp/lombok.jar`에 위치.
+
+### Dart/Flutter LSP
+FVM으로 관리되는 Flutter SDK 사용. `properties.local.el`의 `global-flutter-sdk-dir` / `global-dart-sdk-dir` 경로 참조. SDK 전체를 Emacs 내부로 옮길 수 없으므로 FVM 경로 유지.
+
+### C# (OmniSharp)
+`lsp-bridge-install-omnisharp`로 `~/.emacs.d/.cache/omnisharp/`에 설치.
+
+### Python (CLI — `uv`)
+패키지 매니저 자체는 시스템에 설치:
+```sh
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
