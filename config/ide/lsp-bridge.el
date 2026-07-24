@@ -47,37 +47,7 @@
               (when (file-executable-p executable)
                 (unless (member subdir exec-path)
                   (setenv "PATH" (concat subdir ":" (getenv "PATH")))
-                  (add-to-list 'exec-path subdir))))))))))
-  :hook ((python-mode . lsp-bridge-mode)
-         (python-ts-mode . lsp-bridge-mode)
-         (go-mode . lsp-bridge-mode)
-         (go-ts-mode . lsp-bridge-mode)
-         (java-mode . lsp-bridge-mode)
-         (java-ts-mode . lsp-bridge-mode)
-         (js-mode . lsp-bridge-mode)
-         (js-ts-mode . lsp-bridge-mode)
-         (js2-mode . lsp-bridge-mode)
-         (typescript-mode . lsp-bridge-mode)
-         (typescript-ts-mode . lsp-bridge-mode)
-         (json-mode . lsp-bridge-mode)
-         (json-ts-mode . lsp-bridge-mode)
-         (rjsx-mode . lsp-bridge-mode)
-         (clojure-mode . lsp-bridge-mode)
-         (clojure-ts-mode . lsp-bridge-mode)
-         (clojurec-mode . lsp-bridge-mode)
-         (clojurescript-mode . lsp-bridge-mode)
-         (dart-mode . lsp-bridge-mode)
-         (html-mode . lsp-bridge-mode)
-          (yaml-ts-mode . lsp-bridge-mode)
-          (bash-mode . lsp-bridge-mode)
-          (bash-ts-mode . lsp-bridge-mode)
-          (sh-mode . lsp-bridge-mode)
-          (web-mode . lsp-bridge-mode)
-          (emacs-lisp-mode . lsp-bridge-mode)
-           (groovy-mode . lsp-bridge-mode)
-           (lisp-interaction-mode . lsp-bridge-mode)
-           (csharp-mode . lsp-bridge-mode)
-           (csharp-ts-mode . lsp-bridge-mode))
+                  (add-to-list 'exec-path subdir)))))))))
   :config
   ;; Completion UI: corfu 사용
   (setq lsp-bridge-completion-ui 'corfu)
@@ -91,6 +61,26 @@
                              (not lsp-bridge-breadcrumb-mode)
                              (lsp-bridge-call-file-api-p))
                     (lsp-bridge-breadcrumb-mode 1))))))
+
+  ;; ── Mode hooks ──────────────────────────────────────────
+  ;; use-package :hook 키워드 대신 add-hook으로 직접 등록.
+  ;; :hook은 dotted pair를 매크로 시점에 처리해야 하는데 Emacs startup의
+  ;; use-package autoload 타이밍 문제로 실패할 수 있다.
+  (dolist (mode '(python-mode python-ts-mode
+                  go-mode go-ts-mode
+                  java-mode java-ts-mode
+                  js-mode js-ts-mode js2-mode
+                  typescript-mode typescript-ts-mode
+                  json-mode json-ts-mode
+                  rjsx-mode
+                  clojure-mode clojure-ts-mode clojurec-mode clojurescript-mode
+                  dart-mode html-mode yaml-ts-mode
+                  bash-mode bash-ts-mode sh-mode
+                  web-mode emacs-lisp-mode
+                  groovy-mode lisp-interaction-mode
+                  csharp-mode csharp-ts-mode
+                  terraform-mode))
+    (add-hook (intern (concat (symbol-name mode) "-hook")) #'lsp-bridge-mode))
 
   ;; ── Python (basedpyright) ────────────────────────────────
   ;; basedpyright-langserver from .venv/bin/ (managed by pyproject.toml)
@@ -367,7 +357,7 @@ Adds node_modules/.bin to PATH on success."
    ((derived-mode-p 'terraform-mode)
     (let ((bin (concat my/emacs-dir "/.cache/lsp/terraform-ls/terraform-ls")))
       (unless (file-executable-p bin)
-        (user-error "lsp-bridge: terraform-ls not found. Run `M-x my/install-emacs-lsp-tools`")))))))
+        (user-error "lsp-bridge: terraform-ls not found. Run `M-x my/install-emacs-lsp-tools`"))))))
 
 (advice-add 'lsp-bridge-mode :before #'my/lsp-bridge--check-deps-before-start)
 
