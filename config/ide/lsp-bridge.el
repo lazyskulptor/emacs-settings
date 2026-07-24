@@ -13,6 +13,19 @@
 (add-to-list 'treesit-extra-load-path (concat my/emacs-dir "/tree-sitter/"))
 
 ;; ─────────────────────────────────────────────────────────────
+;; PATH 헬퍼 (exec-path-from-shell 이후 PATH 유지 보장)
+;; ─────────────────────────────────────────────────────────────
+;; NOTE: properties.el에서 PATH를 등록해도 interface.el의 exec-path-from-shell이
+;; login shell 환경으로 덮어씀. 이 함수들은 exec-path-from-shell이 이미 실행된
+;; 이후(idle-timer) 호출되므로 PATH 변경이 유지됨.
+
+(defun my/add-dir-to-path (dir)
+  "Add DIR to `exec-path' and `PATH' if not already present."
+  (unless (member dir exec-path)
+    (setenv "PATH" (concat dir path-separator (getenv "PATH")))
+    (add-to-list 'exec-path dir)))
+
+;; ─────────────────────────────────────────────────────────────
 ;; lsp-bridge 설치
 ;; ─────────────────────────────────────────────────────────────
 
@@ -29,25 +42,20 @@
   (setq lsp-bridge-python-command (concat my/emacs-dir "/.venv/bin/python"))
   (setq lsp-bridge-user-langserver-dir (concat my/emacs-dir "/lsp-user-config"))
   ;; PATH/exec-path에 Emacs 내부 바이너리 디렉토리 즉시 등록
-  ;; (idle-timer bootstrap보다 lsp-bridge가 먼저 시작될 수 있으므로)
-  (let ((venv-bin (concat my/emacs-dir "/.venv/bin"))
-        (node-bin (concat my/emacs-dir "/node_modules/.bin")))
-    (dolist (dir (list venv-bin node-bin))
-      (when (file-directory-p dir)
-        (unless (member dir exec-path)
-          (setenv "PATH" (concat dir ":" (getenv "PATH")))
-          (add-to-list 'exec-path dir))))
-    ;; .cache/lsp/<name>/ 중 <name> 실행파일이 있는 dir만 exec-path에 등록
-    (let ((lsp-cache (concat my/emacs-dir "/.cache/lsp")))
-      (when (file-directory-p lsp-cache)
-        (dolist (subdir (directory-files lsp-cache t "^[^.]"))
-          (when (file-directory-p subdir)
-            (let* ((name (file-name-nondirectory (directory-file-name subdir)))
-                   (executable (expand-file-name name subdir)))
-              (when (file-executable-p executable)
-                (unless (member subdir exec-path)
-                  (setenv "PATH" (concat subdir ":" (getenv "PATH")))
-                  (add-to-list 'exec-path subdir)))))))))
+  (dolist (dir (list (concat my/emacs-dir "/.venv/bin")
+                     (concat my/emacs-dir "/node_modules/.bin")))
+    (when (file-directory-p dir)
+      (my/add-dir-to-path dir)))
+  ;; .cache/lsp/<name>/ 중 실행파일이 있는 dir만 등록
+  (let ((lsp-cache (concat my/emacs-dir "/.cache/lsp")))
+    (when (file-directory-p lsp-cache)
+      (dolist (subdir (directory-files lsp-cache t "^[^.]"))
+        (when (file-directory-p subdir)
+          (let ((executable (expand-file-name
+                             (file-name-nondirectory (directory-file-name subdir))
+                             subdir)))
+            (when (file-executable-p executable)
+              (my/add-dir-to-path subdir)))))))
   :config
   ;; Completion UI: corfu 사용
   (setq lsp-bridge-completion-ui 'corfu)
@@ -61,26 +69,6 @@
                              (not lsp-bridge-breadcrumb-mode)
                              (lsp-bridge-call-file-api-p))
                     (lsp-bridge-breadcrumb-mode 1))))))
-
-  ;; ── Mode hooks ──────────────────────────────────────────
-  ;; use-package :hook 키워드 대신 add-hook으로 직접 등록.
-  ;; :hook은 dotted pair를 매크로 시점에 처리해야 하는데 Emacs startup의
-  ;; use-package autoload 타이밍 문제로 실패할 수 있다.
-  (dolist (mode '(python-mode python-ts-mode
-                  go-mode go-ts-mode
-                  java-mode java-ts-mode
-                  js-mode js-ts-mode js2-mode
-                  typescript-mode typescript-ts-mode
-                  json-mode json-ts-mode
-                  rjsx-mode
-                  clojure-mode clojure-ts-mode clojurec-mode clojurescript-mode
-                  dart-mode html-mode yaml-ts-mode
-                  bash-mode bash-ts-mode sh-mode
-                  web-mode emacs-lisp-mode
-                  groovy-mode lisp-interaction-mode
-                  csharp-mode csharp-ts-mode
-                  terraform-mode))
-    (add-hook (intern (concat (symbol-name mode) "-hook")) #'lsp-bridge-mode))
 
   ;; ── Python (basedpyright) ────────────────────────────────
   ;; basedpyright-langserver from .venv/bin/ (managed by pyproject.toml)
@@ -112,7 +100,7 @@
 
   ;; ── Clojure (clojure-lsp) ─────────────────────────────────
   (setq lsp-bridge-clojure-lsp-server-command
-        (list "bash" "-c" (expand-file-name clojure-lsp-path)))
+        (list (expand-file-name clojure-lsp-path)))
 
   ;; ── Dart/Flutter ──────────────────────────────────────────
   (setq lsp-bridge-dart-analysis-server-command
@@ -241,19 +229,6 @@ No disk files are created."
 ;; lsp-bridge completion 팝업에서 C-s로 minibuffer 검색 모드 진입
 (with-eval-after-load 'acm
   (define-key acm-mode-map (kbd "C-s") 'consult-completion-in-region))
-
-;; ─────────────────────────────────────────────────────────────
-;; PATH 헬퍼 (exec-path-from-shell 이후 PATH 유지 보장)
-;; ─────────────────────────────────────────────────────────────
-;; NOTE: properties.el에서 PATH를 등록해도 interface.el의 exec-path-from-shell이
-;; login shell 환경으로 덮어씀. 이 함수들은 exec-path-from-shell이 이미 실행된
-;; 이후(idle-timer) 호출되므로 PATH 변경이 유지됨.
-
-(defun my/add-dir-to-path (dir)
-  "Add DIR to `exec-path' and `PATH' if not already present."
-  (unless (member dir exec-path)
-    (setenv "PATH" (concat dir path-separator (getenv "PATH")))
-    (add-to-list 'exec-path dir)))
 
 ;; ─────────────────────────────────────────────────────────────
 ;; .emacs.d Python venv bootstrap (비동기)
