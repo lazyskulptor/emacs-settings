@@ -229,8 +229,9 @@
                          (format "/u:%s" account)
                          (format "/p:%s" password)
                          "/proxy:socks5://localhost:1081"
-                         "/dynamic-resolution"
-                         "+toggle-fullscreen")
+                          "/dynamic-resolution"
+                          "+toggle-fullscreen"
+                          "/clipboard")
           (message "Starting sdl-freerdp: %s@%s:%s" account host port))
       (message "Missing required fields or password for RDP connection"))))
 
@@ -619,6 +620,38 @@ TRAMP 환경에서는 tramp-remote-path를 사용하여 원격 명령을 검색�
   (add-hook 'completion-at-point-functions #'my/tramp-ssh-capf nil t))
 
 (add-hook 'eshell-mode-hook #'my/global-path-setup)
+
+;; ─────────────────────────────────────────────────────────────
+;; ez-tunnel 상태 확인
+;; ─────────────────────────────────────────────────────────────
+
+(defcustom my/ez-tunnel-state-file
+  (expand-file-name "ez-tunnel/active"
+                    (or (getenv "XDG_RUNTIME_DIR")
+                        (expand-file-name ".cache" "~")))
+  "ez-tunnel state file path.
+이 파일이 존재하면 SSH 터널이 활성화된 상태.
+ez-tunnel 스크립트의 EZ_STATE_FILE 값과 동일한 로직."
+  :type 'file
+  :group 'ssh-servers)
+
+(defun my/ez-tunnel-status ()
+  "ez-tunnel SSH 터널 활성 상태 확인.
+터널 활성 시 성공 메시지, 비활성 시 경고를 표시.
+interactive하므로 M-x 로 수동 확인 가능."
+  (interactive)
+  (if (file-exists-p my/ez-tunnel-state-file)
+      (progn
+        (message "[ez-tunnel] SSH 터널 활성 — SOCKS5:localhost:1081 / HTTP:localhost:8118")
+        t)
+    (display-warning
+     'ez-tunnel
+     (concat "SSH 터널이 비활성화되어 있습니다.\n"
+             "'ez-tunnel start'로 시작하거나,\n"
+             "프록시 없이 작업 중이라면 이 경고는 무시하세요.")
+     :warning)
+    (message "[ez-tunnel] SSH 터널 비활성 — 'M-x my/ez-tunnel-status'로 재확인")
+    nil))
 
 (provide 'remote)
 ;;; remote.el ends here
