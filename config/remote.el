@@ -229,8 +229,9 @@
                          (format "/u:%s" account)
                          (format "/p:%s" password)
                          "/proxy:socks5://localhost:1081"
-                         "/dynamic-resolution"
-                         "+toggle-fullscreen")
+                          "/dynamic-resolution"
+                          "+toggle-fullscreen"
+                          "/clipboard")
           (message "Starting sdl-freerdp: %s@%s:%s" account host port))
       (message "Missing required fields or password for RDP connection"))))
 
