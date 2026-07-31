@@ -13,6 +13,13 @@
 Only newly opened buffers are tracked; pre-existing buffers are
 not added.  Set to nil by `mcp--cleanup-temp-buffers'.")
 
+(defun mcp--tool-arg (args key)
+  "Return ARGS value for KEY, accepting symbol- or string-keyed alists.
+MCP handlers receive symbol-keyed args from the server; this helper
+also falls back to string keys for direct/test callers."
+  (or (alist-get key args)
+      (cdr (assoc-string (symbol-name key) args))))
+
 (defun mcp--buf-ensure-open (file)
   "Return a live buffer for FILE; open silently if not already visiting.
 Tracks newly opened buffers in `mcp--temp-buffers' for later cleanup."
@@ -88,7 +95,7 @@ Idempotent and safe to register multiple times."
 ;;; ── Tool: get_project_structure ──────────────────────────────────────
 
 (defun mcp--handler-get-project-structure (args)
-  (let* ((depth (or (cdr (assoc "max_depth" args)) 3))
+  (let* ((depth (or (mcp--tool-arg args 'max_depth) 3))
          (proj  (project-current))
          (root  (expand-file-name (if proj (project-root proj) default-directory))))
     (shell-command-to-string
@@ -165,9 +172,9 @@ Idempotent and safe to register multiple times."
    (t (format "%s" loc))))
 
 (defun mcp--handler-find-definition (args)
-  (let* ((file (cdr (assoc "file" args)))
-         (line (or (cdr (assoc "line" args)) 1))
-         (col  (or (cdr (assoc "column" args)) 0))
+  (let* ((file (mcp--tool-arg args 'file))
+         (line (or (mcp--tool-arg args 'line) 1))
+         (col  (or (mcp--tool-arg args 'column) 0))
          (buf  (mcp--buf-ensure-open file)))
     (unwind-protect
         (with-current-buffer buf
@@ -192,9 +199,9 @@ Idempotent and safe to register multiple times."
 ;;; ── Tool: find_references ────────────────────────────────────────────
 
 (defun mcp--handler-find-references (args)
-  (let* ((file (cdr (assoc "file" args)))
-         (line (or (cdr (assoc "line" args)) 1))
-         (col  (or (cdr (assoc "column" args)) 0))
+  (let* ((file (mcp--tool-arg args 'file))
+         (line (or (mcp--tool-arg args 'line) 1))
+         (col  (or (mcp--tool-arg args 'column) 0))
          (buf  (mcp--buf-ensure-open file)))
     (unwind-protect
         (with-current-buffer buf
@@ -219,7 +226,7 @@ Idempotent and safe to register multiple times."
 ;;; ── Tool: get_imenu_symbols ──────────────────────────────────────────
 
 (defun mcp--handler-get-imenu-symbols (args)
-  (let* ((file (cdr (assoc "file" args)))
+  (let* ((file (mcp--tool-arg args 'file))
          (buf  (mcp--buf-ensure-open file)))
     (unwind-protect
         (with-current-buffer buf
@@ -235,9 +242,9 @@ Idempotent and safe to register multiple times."
 ;;; ── Tool: get_tree_sitter_node ───────────────────────────────────────
 
 (defun mcp--handler-get-tree-sitter-node (args)
-  (let* ((file (cdr (assoc "file" args)))
-         (line (or (cdr (assoc "line" args)) 1))
-         (col  (or (cdr (assoc "column" args)) 0))
+  (let* ((file (mcp--tool-arg args 'file))
+         (line (or (mcp--tool-arg args 'line) 1))
+         (col  (or (mcp--tool-arg args 'column) 0))
          (buf  (mcp--buf-ensure-open file)))
     (unwind-protect
         (with-current-buffer buf
@@ -270,8 +277,8 @@ Idempotent and safe to register multiple times."
   "Create a temporary org-mode report buffer.
 ARGS should contain 'topic' and 'content' keys.
 Returns the buffer name and visibility status."
-  (let* ((topic (cdr (assoc "topic" args)))
-         (content (cdr (assoc "content" args)))
+  (let* ((topic (mcp--tool-arg args 'topic))
+         (content (mcp--tool-arg args 'content))
          (buf-name (if topic
                        (format "*Agent Report: %s*" topic)
                      (format "*Agent Report: %s*"
@@ -321,8 +328,8 @@ Returns the buffer name and visibility status."
   (define-key ediff-mode-map (kbd "C-c C-c") #'mcp--ediff-accept-and-quit))
 
 (defun mcp--handler-edit-buffer-with-preview (args)
-  (let* ((buf-name    (cdr (assoc "buffer_name" args)))
-         (new-content (cdr (assoc "new_content" args)))
+  (let* ((buf-name    (mcp--tool-arg args 'buffer_name))
+         (new-content (mcp--tool-arg args 'new_content))
          (target-buf  (get-buffer buf-name)))
     (unless target-buf
       (error "Buffer not found: %s" buf-name))
@@ -506,8 +513,8 @@ Claude Code에서 emacs MCP 서버에 연결하려면 socat이 필요합니다.
                         (heading_title . ((type . "string") (description . "검색할 heading 제목")))))
                     (required . ["file" "heading_title"]))
     :function (lambda (args)
-                (let* ((file (cdr (assoc "file" args)))
-                       (title (cdr (assoc "heading_title" args)))
+                (let* ((file (mcp--tool-arg args 'file))
+                       (title (mcp--tool-arg args 'heading_title))
                        (result (wiki-org-find-heading file title)))
                   (if result
                       (format "Found: start=%d, end=%d" (car result) (cdr result))
@@ -524,8 +531,8 @@ Claude Code에서 emacs MCP 서버에 연결하려면 socat이 필요합니다.
                         (heading_title . ((type . "string") (description . "검색할 heading 제목")))))
                     (required . ["file" "heading_title"]))
     :function (lambda (args)
-                (let* ((file (cdr (assoc "file" args)))
-                       (title (cdr (assoc "heading_title" args)))
+                (let* ((file (mcp--tool-arg args 'file))
+                       (title (mcp--tool-arg args 'heading_title))
                        (exists (wiki-org-heading-exists-p file title)))
                   (if exists "true" "false")))))
 
@@ -542,10 +549,10 @@ Claude Code에서 emacs MCP 서버에 연결하려면 socat이 필요합니다.
                         (body . ((type . "string") (description . "heading 아래 본문 (선택사항)")))))
                     (required . ["file" "after_heading" "new_heading"]))
     :function (lambda (args)
-                (let* ((file (cdr (assoc "file" args)))
-                       (after (cdr (assoc "after_heading" args)))
-                       (new (cdr (assoc "new_heading" args)))
-                       (body (cdr (assoc "body" args))))
+                (let* ((file (mcp--tool-arg args 'file))
+                       (after (mcp--tool-arg args 'after_heading))
+                       (new (mcp--tool-arg args 'new_heading))
+                       (body (mcp--tool-arg args 'body)))
                   (wiki-org-insert-heading-after file after new body)
                   "OK"))))
 
@@ -561,9 +568,9 @@ Claude Code에서 emacs MCP 서버에 연결하려면 socat이 필요합니다.
                         (text . ((type . "string") (description . "추가할 텍스트")))))
                     (required . ["file" "heading_title" "text"]))
     :function (lambda (args)
-                (let* ((file (cdr (assoc "file" args)))
-                       (title (cdr (assoc "heading_title" args)))
-                       (text (cdr (assoc "text" args))))
+                (let* ((file (mcp--tool-arg args 'file))
+                       (title (mcp--tool-arg args 'heading_title))
+                       (text (mcp--tool-arg args 'text)))
                   (wiki-org-append-to-heading file title text)
                   "OK"))))
 
@@ -579,9 +586,9 @@ Claude Code에서 emacs MCP 서버에 연결하려면 socat이 필요합니다.
                         (new_body . ((type . "string") (description . "새 body 내용")))))
                     (required . ["file" "heading_title" "new_body"]))
     :function (lambda (args)
-                (let* ((file (cdr (assoc "file" args)))
-                       (title (cdr (assoc "heading_title" args)))
-                       (body (cdr (assoc "new_body" args))))
+                (let* ((file (mcp--tool-arg args 'file))
+                       (title (mcp--tool-arg args 'heading_title))
+                       (body (mcp--tool-arg args 'new_body)))
                   (wiki-org-replace-heading-body file title body)
                   "OK"))))
 
@@ -598,10 +605,10 @@ Claude Code에서 emacs MCP 서버에 연결하려면 socat이 필요합니다.
                         (body . ((type . "string") (description . "자식 heading 본문 (선택사항)")))))
                     (required . ["file" "parent_heading" "child_heading"]))
     :function (lambda (args)
-                (let* ((file (cdr (assoc "file" args)))
-                       (parent (cdr (assoc "parent_heading" args)))
-                       (child (cdr (assoc "child_heading" args)))
-                       (body (cdr (assoc "body" args))))
+                (let* ((file (mcp--tool-arg args 'file))
+                       (parent (mcp--tool-arg args 'parent_heading))
+                       (child (mcp--tool-arg args 'child_heading))
+                       (body (mcp--tool-arg args 'body)))
                   (wiki-org-insert-child-heading file parent child body)
                   "OK"))))
 
@@ -651,8 +658,8 @@ Claude Code에서 emacs MCP 서버에 연결하려면 socat이 필요합니다.
                                   (description . "검색 필드 (기본: all)")))))
                     (required . ["query"]))
     :function (lambda (args)
-                (let* ((query (cdr (assoc "query" args)))
-                       (field (or (cdr (assoc "field" args)) "all"))
+                (let* ((query (mcp--tool-arg args 'query))
+                       (field (or (mcp--tool-arg args 'field) "all"))
                        (graph-file (wiki-build-graph))
                        (result (make-hash-table :test 'equal)))
                   (if (and graph-file (file-readable-p graph-file))
@@ -665,30 +672,30 @@ Claude Code에서 emacs MCP 서버에 연결하려면 socat이 필요합니다.
                                  matches)
                              ;; Tag search
                              (when (member field '("tag" "all"))
-                               (maphash
-                                (lambda (tag file-list)
-                                  (when (string-match-p
-                                         (regexp-quote query) tag)
-                                    (dolist (f file-list)
-                                      (puthash f t result))))
-                                tags-idx))
+                               (dolist (cell tags-idx)
+                                 (let ((tag (car cell))
+                                       (files (cdr cell)))
+                                   (when (string-match-p
+                                          (regexp-quote query) tag)
+                                     (dolist (f files)
+                                       (puthash f t result))))))
                              ;; Title/heading search
                              (when (member field '("title" "heading" "all"))
-                               (maphash
-                                (lambda (path entry)
-                                  (let ((title (aget "t" entry))
-                                        (headings (aget "h" entry)))
-                                   (when (or (and title
-                                                   (string-match-p
-                                                    (regexp-quote query) title))
-                                             (and headings
-                                                  (cl-some
-                                                   (lambda (h)
-                                                     (string-match-p
-                                                      (regexp-quote query) h))
-                                                   headings)))
-                                     (puthash path t result))))
-                               files-json))
+                               (dolist (cell files-json)
+                                 (let ((path (car cell))
+                                       (entry (cdr cell)))
+                                   (let ((title (aget "t" entry))
+                                         (headings (aget "h" entry)))
+                                     (when (or (and title
+                                                    (string-match-p
+                                                     (regexp-quote query) title))
+                                               (and headings
+                                                    (cl-some
+                                                     (lambda (h)
+                                                       (string-match-p
+                                                        (regexp-quote query) h))
+                                                     headings)))
+                                       (puthash path t result))))))
                             ;; Build result list
                             (let (path-list)
                               (maphash (lambda (k _) (push k path-list)) result)
