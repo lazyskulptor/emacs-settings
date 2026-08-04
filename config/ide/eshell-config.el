@@ -137,6 +137,7 @@ Usage: el (expression) or el expression"
             (evil-insert-state)
             ;; evil 키바인딩 설정 (로드 순서 문제 해결)
             (evil-define-key 'insert eshell-mode-map (kbd "RET") 'eshell-send-input)
+            (evil-define-key 'insert eshell-mode-map (kbd "<return>") 'eshell-send-input)
             (evil-define-key 'insert eshell-mode-map (kbd "S-RET") 'newline)
             (evil-define-key 'insert eshell-mode-map (kbd "M-RET") 'newline)))
 
