@@ -4,8 +4,9 @@
   :mode ("\\.org\\'" . org-mode)
   :config
   (setq org-adapt-indentation t)
-  (setq org-agenda-show-future-repeats 'next)
-  (setq org-todo-keywords '((type "TODO" "|" "DONE")))
+   (setq org-agenda-show-future-repeats 'next)
+   (setq org-agenda-span 'month)
+   (setq org-todo-keywords '((type "TODO" "|" "DONE")))
   (setq org-latex-pdf-process
         (list "latexmk -pdflatex='%latex -shell-escape -interaction nonstopmode' -pdf -output-directory=%o %f"))
   (setq org-directory (file-truename "~/Workspace/wiki/"))
@@ -35,6 +36,11 @@
   (org-roam-dailies-directory "daily/")
   (org-roam-completion-everywhere t)
   (org-roam-graph-viewer "open")
+  (org-roam-capture-templates
+   '(("d" "default" plain "%?"
+      :target (file+head "roam/%<%Y%m%d%H%M%S>-${slug}.org"
+                         "#+title: ${title}\n")
+      :unnarrowed t)))
   :bind (("C-c n l" . org-roam-buffer-toggle)
          ("C-c n f" . org-roam-node-find)
          ("C-c n g" . org-roam-graph)
