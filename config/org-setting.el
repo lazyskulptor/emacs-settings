@@ -6,7 +6,7 @@
   (setq org-adapt-indentation t)
    (setq org-agenda-show-future-repeats 'next)
    (setq org-agenda-span 'month)
-   (setq org-todo-keywords '((type "TODO" "|" "DONE")))
+   (setq org-todo-keywords '((type "TODO" "|" "DONE" "PASSED" "HOLD")))
   (setq org-latex-pdf-process
         (list "latexmk -pdflatex='%latex -shell-escape -interaction nonstopmode' -pdf -output-directory=%o %f"))
   (setq org-directory (file-truename "~/Workspace/wiki/"))
