@@ -12,7 +12,7 @@
   :after acp)
 
 (use-package acp
-  :straight (acp :type git :host github :repo "xenodium/acp.el"))
+  :straight (acp :type git :host github :repo "lazyskulptor/acp.el" :branch "perf/async-rendering"))
 
 (use-package agent-shell
   :straight (agent-shell :type git :host github :repo "lazyskulptor/agent-shell" :branch "main")
@@ -23,7 +23,6 @@
         (agent-shell-opencode-make-agent-config))  ; OpenCode를 기본 에이전트로 설정
 
   ;; Transcript 저장 위치를 ~/.emacs.d/.agent-shell/transcripts/로 고정
-  ;; 프로젝트별로 흩어지는 대화 기록을 한 곳에 모아 검색/추출 가능하게 함
   (defun my-agent-shell-transcript-file-path ()
     "Return a transcript file path in ~/.emacs.d/.agent-shell/transcripts/."
     (let* ((dir (expand-file-name ".agent-shell/transcripts" user-emacs-directory))
@@ -36,7 +35,7 @@
   (setq agent-shell-transcript-file-path-function #'my-agent-shell-transcript-file-path)
   
   ;; 버퍼 이름 형식
-  (setq agent-shell-buffer-name-format "*Agent Shell: %s*")
+  (setq agent-shell-buffer-name-format 'default)
   
   ;; 컨텍스트 사용량 표시 (헤더 및 모드라인에 표시)
   (setq agent-shell-show-context-usage-indicator 'detailed)
@@ -61,7 +60,7 @@
         (when parts
           (propertize (string-join parts " · ") 'font-lock-face 'font-lock-comment-face)))))
 
-  (defun my-agent-shell-add-token-to-header ()
+  (defun my-agent-shell-add-token-to-header (&rest _)
     "Add token usage indicator to header line after agent-shell updates it."
     (when (derived-mode-p 'agent-shell-mode)
       (when-let ((indicator (my-agent-shell-token-header-indicator)))
@@ -176,26 +175,16 @@
 ;; ─────────────────────────────────────────────
 ;; 원격 OpenCode ACP 설정
 ;; ─────────────────────────────────────────────
-;; TRAMP 버퍼에서 원격 서버의 opencode를 직접 실행
-;;
-;; 동작 원리:
-;;   - acp.el이 make-process를 :file-handler t로 호출
-;;   - TRAMP가 SSH 채널을 통해 원격에서 opencode 실행
-;;   - stdin/stdout이 SSH를 통해 터널링 (JSON-RPC over SSH)
-
 (setq agent-shell-opencode-acp-command
       '("/home/ezcaretech/.opencode/bin/opencode" "acp"))
 
-;; 로컬/원격 구분하여 opencode 경로 설정
 (defun my-agent-shell-set-opencode-command (orig-fn &rest args)
   "TRAMP 버퍼가 아니면 로컬 opencode를 사용하도록 command 설정."
   (let ((buffer (plist-get args :buffer))
         (original-command agent-shell-opencode-acp-command))
     (if (and buffer (buffer-local-value 'default-directory buffer))
         (if (file-remote-p (buffer-local-value 'default-directory buffer))
-            ;; TRAMP 버퍼: 원격 경로 유지
             (apply orig-fn args)
-          ;; 로컬 버퍼: 로컬 opencode 사용
           (with-current-buffer buffer
             (setq-local agent-shell-opencode-acp-command '("opencode" "acp"))
             (unwind-protect
@@ -203,6 +192,7 @@
               (setq-local agent-shell-opencode-acp-command original-command))))
       (apply orig-fn args))))
 (advice-add 'agent-shell-opencode-make-client :around #'my-agent-shell-set-opencode-command)
+
 (defun my-agent-shell-cwd-advice (orig-fun)
   "TRAMP 버퍼에서 expand-file-name된 경로를 반환."
   (if (file-remote-p default-directory)
@@ -210,7 +200,6 @@
     (funcall orig-fun)))
 (advice-add 'agent-shell-cwd :around #'my-agent-shell-cwd-advice)
 
-;; executable-find: TRAMP 버퍼에서 원격 파일 검색
 (defun my-executable-find-remote (orig-fn command &optional remote)
   "TRAMP 버퍼에서 executable-find를 파일 존재 여부 확인으로 대체."
   (if (file-remote-p default-directory)
@@ -244,35 +233,27 @@
         (expand-file-name "agent-shell/transcripts/" "~/Workspace/wiki/"))
 
   ;; ── Migration bug workaround ─────────────────────────────────────────
-  ;; "Invalid use of '\\' in replacement text" 에러 우회
-  ;; `agent-shell--org-transcript-convert'의 `\\1' backreference 대신
-  ;; `match-string'을 사용하여 백슬래시 포함 텍스트를 안전하게 처리
   (defun my--agent-shell-org-transcript-convert (text)
     "Convert markdown transcript TEXT to org-mode format safely."
     (with-temp-buffer
       (insert text)
-      ;; Convert ATX headers: ## Foo -> ** Foo
       (goto-char (point-min))
       (while (re-search-forward "^\\(#+\\) " nil t)
         (replace-match (concat (make-string (length (match-string 1)) ?*) " ")))
-      ;; Convert code fences
       (goto-char (point-min))
       (while (re-search-forward "^\\(`\\{3,\\}\\)\\(.*\\)$" nil t)
         (let ((lang (string-trim (match-string 2))))
           (if (string-empty-p lang)
               (replace-match "#+end_src")
             (replace-match (concat "#+begin_src " lang)))))
-      ;; Convert block quotes: > text -> #+begin_quote
       (goto-char (point-min))
       (while (re-search-forward "^> \\(.*\\)$" nil t)
         (let ((content (match-string 1)))
           (replace-match (concat "#+begin_quote\n" content "\n#+end_quote"))))
-      ;; Convert **bold** to *bold*
       (goto-char (point-min))
       (while (re-search-forward "\\*\\*\\([^*\n]+\\)\\*\\*" nil t)
         (let ((content (match-string 1)))
           (replace-match (concat "*" content "*"))))
-      ;; Convert horizontal rules
       (goto-char (point-min))
       (while (re-search-forward "^---+$" nil t)
         (replace-match "-----"))
@@ -314,16 +295,8 @@ The current (in-progress) interaction is never deleted."
 
 (defun my-agent-shell-truncate-buffer (&rest _)
   "Delete oldest interactions in the current agent shell buffer.
-
-Counts prompts (each prompt marks one interaction boundary) using
-`comint-prompt-regexp'.  When the count exceeds
-`agent-shell-max-interactions', removes the oldest interactions
-from the beginning of the buffer while keeping the most recent
-turn(s).
-
-This function is designed to be called from an advice on
-`shell-maker-finish-output', so it runs after every completed
-agent response."
+Counts prompts using `comint-prompt-regexp', removes oldest
+interactions keeping only `agent-shell-max-interactions' turns."
   (interactive)
   (when (and (derived-mode-p 'agent-shell-mode)
              (numberp agent-shell-max-interactions)
@@ -333,20 +306,15 @@ agent response."
         (let ((inhibit-read-only t))
           (goto-char (point-min))
           (let (prompt-positions)
-            ;; Collect every prompt start position
             (while (re-search-forward comint-prompt-regexp nil t)
               (push (match-beginning 0) prompt-positions))
             (setq prompt-positions (nreverse prompt-positions))
             (let* ((count (length prompt-positions))
                    (to-delete (- count agent-shell-max-interactions)))
               (when (> to-delete 0)
-                ;; Delete from buffer start to the first prompt to KEEP
-                ;; This removes the oldest 'to-delete' interactions
-                ;; and any leading content (e.g. welcome message).
                 (let ((delete-end (or (nth to-delete prompt-positions)
                                       (point-max))))
                   (delete-region (point-min) delete-end)
-                  ;; Refresh comint-last-prompt markers so they stay valid.
                   (when (and comint-last-prompt
                              (markerp (car comint-last-prompt)))
                     (set-marker (car comint-last-prompt)
@@ -356,10 +324,6 @@ agent response."
                                 (max (marker-position (cdr comint-last-prompt))
                                      delete-end))))))))))))
 
-;; Register truncation after every completed interaction.
-;; shell-maker-finish-output is called once per agent response,
-;; so this fires once per turn — just after the response is fully
-;; written to the buffer.
 (with-eval-after-load 'shell-maker
   (advice-add 'shell-maker-finish-output :after #'my-agent-shell-truncate-buffer))
 
