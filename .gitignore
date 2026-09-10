@@ -52,3 +52,4 @@ ede-projects.el
 
 # Node packages (package.json + npm install)
 node_modules/
+.aider*

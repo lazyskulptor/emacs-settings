@@ -84,7 +84,10 @@
 ;; 15. Agent Shell
 (require 'agent-shell-setting)
 
-;; 16. Wiki 도구 (mcp-server가 의존)
+;; 16.1. Aider Integration
+(require 'aider-setting)
+
+;; 17. Wiki 도구 (mcp-server가 의존)
 (require 'wiki-tools)
 
 ;; 17. MCP 서버

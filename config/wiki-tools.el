@@ -43,27 +43,35 @@
 ;; (Index Update section removed — replaced by Graph Index, see section 8)
 
 ;; ──────────────────────────────────────────────────────────────
-;; 2. AI Formatting
+;; 2. AI Formatting (Supports both Aider and OpenCode)
 ;; ──────────────────────────────────────────────────────────────
+(defcustom wiki-ai-preferred-agent 'aider
+  "Preferred AI agent for wiki operations ('aider or 'opencode)."
+  :type '(choice (const aider) (const opencode))
+  :group 'wiki)
+
 (defun wiki-ai-format-region (start end &optional instructions)
-  "선택 영역을 로컬 OpenCode Agent (opencode run) 로 포맷팅."
+  "선택 영역을 선호하는 AI 에이전트(Aider 또는 OpenCode)로 포맷팅."
   (interactive "r\nsInstructions (default: format as clean Org): ")
-  (unless (executable-find "opencode")
-    (user-error "'opencode' 명령어를 찾을 수 없습니다. PATH 를 확인하세요."))
-  (let* ((text (buffer-substring-no-properties start end))
-         (prompt (format "%s\n\n---\n%s\n---"
-                         (or instructions "Format the following text as clean, well-structured Org-mode content. Preserve meaning but improve readability.")
-                         text))
-         (cmd (format "opencode run %s" (shell-quote-argument prompt))))
-    (message "🤖 Sending to local OpenCode Agent...")
-    (let ((resp (shell-command-to-string cmd)))
-      (if (and resp (> (length resp) 0))
-          (progn (delete-region start end) (insert resp)
-                 (message "✅ AI formatting applied via OpenCode"))
-        (user-error "OpenCode Agent 가 빈 응답을 반환했습니다.")))))
+  (let ((agent-cmd (if (eq wiki-ai-preferred-agent 'aider) "aider" "opencode")))
+    (unless (executable-find agent-cmd)
+      (user-error "'%s' 명령어를 찾을 수 없습니다. PATH를 확인하세요." agent-cmd))
+    (let* ((text (buffer-substring-no-properties start end))
+           (prompt (format "%s\n\n---\n%s\n---"
+                           (or instructions "Format the following text as clean, well-structured Org-mode content. Preserve meaning but improve readability. Return ONLY the formatted text.")
+                           text))
+           (cmd (if (eq wiki-ai-preferred-agent 'aider)
+                    (format "aider --message %s --no-auto-commits --yes" (shell-quote-argument prompt))
+                  (format "opencode run %s" (shell-quote-argument prompt)))))
+      (message "🤖 Sending to %s..." agent-cmd)
+      (let ((resp (shell-command-to-string cmd)))
+        (if (and resp (> (length resp) 0))
+            (progn (delete-region start end) (insert resp)
+                   (message "✅ AI formatting applied via %s" agent-cmd))
+          (user-error "%s 가 빈 응답을 반환했습니다." agent-cmd))))))
 
 (defun wiki-ai-format-buffer ()
-  "현재 버퍼 전체를 로컬 OpenCode Agent 로 포맷팅."
+  "현재 버퍼 전체를 선호하는 AI 에이전트로 포맷팅."
   (interactive)
   (wiki-ai-format-region (point-min) (point-max)))
 
@@ -274,16 +282,18 @@ Returns (timestamps . positions) cons."
       (message "✅ Archived %s → %s" month archive-name))))
 
 ;; ──────────────────────────────────────────────────────────────
-;; 7. Wiki Commit (opencode subagent)
+;; 7. Wiki Commit (Aider / OpenCode subagent)
 ;; ──────────────────────────────────────────────────────────────
 (defun wiki-commit ()
-  "wiki-commit 서브에이전트 실행. 어디서든 wiki 커밋 가능."
+  "선호하는 AI 에이전트(Aider 또는 OpenCode)로 wiki-commit 실행."
   (interactive)
   (let* ((wiki-root (expand-file-name wiki-dir))
-         (cmd (format "cd %s && exec opencode run --agent wiki-commit \"wiki commit\""
-                      (shell-quote-argument wiki-root))))
+         (cmd (if (eq wiki-ai-preferred-agent 'aider)
+                  (format "cd %s && exec aider --commit" (shell-quote-argument wiki-root))
+                (format "cd %s && exec opencode run --agent wiki-commit \"wiki commit\""
+                        (shell-quote-argument wiki-root)))))
     (async-shell-command cmd "*wiki-commit*")
-    (message "🚀 wiki-commit started (see *wiki-commit* buffer)")))
+    (message "🚀 wiki-commit started via %s (see *wiki-commit* buffer)" wiki-ai-preferred-agent)))
 
 ;; ──────────────────────────────────────────────────────────────
 ;; 8. Graph Index
