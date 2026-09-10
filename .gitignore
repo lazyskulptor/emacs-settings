@@ -53,3 +53,9 @@ ede-projects.el
 # Node packages (package.json + npm install)
 node_modules/
 .aider*
+
+# Generated local state
+/eshell/.last-archive
+/eshell/archive/
+/projectile-frecency.eld
+/tree-sitter/*.dylib
