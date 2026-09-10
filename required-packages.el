@@ -78,10 +78,10 @@
 ;; 14. Markdown (문법 강조 + 브라우저 미리보기)
 (require 'markdown-setting)
 
-;; 14. Slack
+;; 15. Slack
 (require 'slack-setting)
 
-;; 15. Agent Shell
+;; 16. Agent Shell
 (require 'agent-shell-setting)
 
 ;; 16.1. Aider Integration
@@ -90,10 +90,10 @@
 ;; 17. Wiki 도구 (mcp-server가 의존)
 (require 'wiki-tools)
 
-;; 17. MCP 서버
+;; 18. MCP 서버
 (require 'mcp-server-setting)
 
-;; 18. MCP 서버 호출 로깅
+;; 19. MCP 서버 호출 로깅
 (require 'mcp-server-trace)
 
 ;;  end of file
