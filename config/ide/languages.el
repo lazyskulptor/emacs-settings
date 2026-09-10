@@ -46,6 +46,14 @@
                         indent-tabs-mode t)
             (add-hook 'before-save-hook #'lsp-bridge-code-format nil t)))
 
+;; go-ts-mode: tree-sitter 기반 Go 모드에도 동일 설정 + lsp-bridge 활성화
+(add-hook 'go-ts-mode-hook
+          (lambda ()
+            (setq-local tab-width 4
+                        indent-tabs-mode t)
+            (add-hook 'before-save-hook #'lsp-bridge-code-format nil t)
+            (lsp-bridge-mode 1)))
+
 ;; ─────────────────────────────────────────────────────────────
 ;; Java 모드 추가 설정
 ;; ─────────────────────────────────────────────────────────────
@@ -155,6 +163,7 @@ Works with TRAMP remote files via `compile'."
 
 (add-to-list 'auto-mode-alist '("\\.yml\\'" . yaml-ts-mode))
 (add-to-list 'auto-mode-alist '("\\.yaml\\'" . yaml-ts-mode))
+(add-to-list 'auto-mode-alist '("\\.go\\'" . go-ts-mode))
 (add-to-list 'auto-mode-alist '("\\.http\\'" . restclient-mode))
 (add-to-list 'auto-mode-alist '("\\.jsp\\.html\\'" . web-mode))
 
@@ -174,6 +183,16 @@ Works with TRAMP remote files via `compile'."
   (add-hook 'csharp-ts-mode-hook
             (lambda ()
               (setq-local csharp-ts-mode-indent-offset 4))))
+
+;; ─────────────────────────────────────────────────────────────
+;; tree-sitter grammars (go-ts-mode, bash-ts-mode 지원)
+;; ─────────────────────────────────────────────────────────────
+;; 설치: M-x treesit-install-language-grammar RET go|bash
+;; (treesit-source-dir 기본값 = ~/.emacs.d/tree-sitter/)
+
+(setq treesit-language-source-alist
+      '((go   "https://github.com/tree-sitter/tree-sitter-go")
+        (bash "https://github.com/tree-sitter/tree-sitter-bash")))
 
 (provide 'languages)
 ;;; languages.el ends here
