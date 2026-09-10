@@ -68,7 +68,13 @@
   global-dart-sdk-dir    ""
   dotnet-sdk-dir         ""
   wiki-dir             "~/Workspace/wiki/"
-  wiki-archive-dir     "~/Workspace/wiki/.archive/")
+  wiki-archive-dir     "~/Workspace/wiki/.archive/"
+
+ ;; 메일 계정/다이제스트 — properties.local.el에서 실제 값 설정
+ ;; mail-accounts: ((label "display-name" "addr") ...)
+ ;; mail-digest-senders: 자동 요약할 발신자 이메일 주소 목록
+ mail-accounts       nil
+ mail-digest-senders nil)
 
 ;; Load machine-specific overrides (gitignored)
 (let ((local (expand-file-name "~/.emacs.d/properties.local.el")))

@@ -72,7 +72,10 @@
 ;; 12. Org 모드
 (require 'org-setting)
 
-;; 13. Markdown (문법 강조 + 브라우저 미리보기)
+;; 13. 이메일 클라이언트 (notmuch + smtpmail + wiki 다이제스트)
+(require 'mail-setting)
+
+;; 14. Markdown (문법 강조 + 브라우저 미리보기)
 (require 'markdown-setting)
 
 ;; 14. Slack
