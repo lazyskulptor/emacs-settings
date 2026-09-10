@@ -231,6 +231,7 @@ Supports both '(' directly and 'el ' prefix."
 
 (defun my/eshell-check-monthly-archive ()
   "Emacs 시작 시 한 달에 한 번씩 히스토리 아카이브 실행."
+  (require 'em-hist)
   (let ((marker (expand-file-name ".last-archive"
                                   (file-name-directory eshell-history-file-name))))
     (when (or (not (file-exists-p marker))
