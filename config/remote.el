@@ -44,6 +44,7 @@
      (setq tramp-connection-properties
            (cons (list (regexp-quote "ssh") "login-args"
                        '(("-l" "%u") ("-p" "%p")
+                         ("-o" "NumberOfPasswordPrompts=1")
                          ("-o" "ControlMaster=auto")
                          ("-o" "ControlPath=/tmp/ssh-tramp-%%r@%%h:%%p")
                          ("-o" "ControlPersist=yes")
