@@ -67,6 +67,7 @@
 
 ;; 11. misc 패키지
 (require 'tools)
+(require 'git-workspace)
 
 ;; 12. Org 모드
 (require 'org-setting)
