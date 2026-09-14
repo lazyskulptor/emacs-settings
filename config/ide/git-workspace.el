@@ -12,10 +12,39 @@
 (defvar-local git-workspace-status-root nil
   "Workspace root this status buffer was opened from via `git-workspace-list'.")
 
+(defvar git-workspace-root-history nil
+  "Previously used Git Workspace roots, most recently used first.")
+
+(defun git-workspace--remember-root (root)
+  "Move ROOT to the front of `git-workspace-root-history' and return it."
+  (setq git-workspace-root-history
+        (cons root (delete root git-workspace-root-history)))
+  root)
+
 (defun git-workspace--root ()
-  "Prompt for a workspace root."
-  (read-directory-name "Git workspace: "
-                       (or (projectile-project-root) default-directory)))
+  "Prompt for a workspace root, defaulting to recently used ones."
+  (let* ((browse "[Browse...]")
+         (choice (completing-read "Git workspace: "
+                                  (cons browse git-workspace-root-history)
+                                  nil nil nil nil
+                                  (car git-workspace-root-history))))
+    (git-workspace--remember-root
+     (file-name-as-directory
+      (expand-file-name
+       (if (equal choice browse)
+           (read-directory-name "Git workspace: "
+                                (or (projectile-project-root) default-directory))
+         choice))))))
+
+(defun git-workspace-here ()
+  "Start Git Workspace using the current directory as the root.
+Handy from a Dired or Eshell buffer already sitting in the desired
+workspace directory: `default-directory' is used directly instead of
+prompting."
+  (interactive)
+  (git-workspace-list
+   (git-workspace--remember-root
+    (file-name-as-directory (expand-file-name default-directory)))))
 
 (defun git-workspace--repos (root)
   "Return immediate child Git repositories of ROOT."
@@ -57,6 +86,7 @@ to another)."
 
 (defvar git-workspace-repolist-columns
   `(("Name"    25 ,#'magit-repolist-column-ident  ())
+    ("D"        1 ,#'magit-repolist-column-flag   ())
     ("Branch"  20 ,#'magit-repolist-column-branch ())
     ("Version" 25 ,#'magit-repolist-column-version
      ((:sort magit-repolist-version<)))
@@ -64,8 +94,10 @@ to another)."
      ((:right-align t) (:sort <)))
     ("Ahead"    6 ,#'magit-repolist-column-unpushed-to-upstream
      ((:right-align t) (:sort <))))
-  "Columns used by `git-workspace-list' (Name/Branch/Version/Behind/Ahead).
-\"Behind\"/\"Ahead\" count commits relative to the upstream branch.")
+  "Columns used by `git-workspace-list' (Name/D/Branch/Version/Behind/Ahead).
+\"D\" flags dirty repos (N/U/S = untracked/unstaged/staged, first that
+applies).  \"Behind\"/\"Ahead\" count commits relative to the upstream
+branch.")
 
 (defun git-workspace-repolist-status ()
   "Open the status buffer for the repository at point.
@@ -238,6 +270,17 @@ Siblings are computed from `git-workspace-status-root'."
                          (git-workspace--git dir "pull" "--ff-only")))
               (format "%s %s" (if (zerop status) "OK" "FAIL") output))))))
 
+(defun git-workspace-push (root)
+  "Push clean repositories immediately below ROOT."
+  (interactive (list (git-workspace--root)))
+  (git-workspace--run
+   root (lambda (dir)
+          (if (not (string-empty-p (cdr (git-workspace--git dir "status" "--porcelain"))))
+              "SKIP dirty"
+            (pcase-let ((`(,status . ,output)
+                         (git-workspace--git dir "push")))
+              (format "%s %s" (if (zerop status) "OK" "FAIL") output))))))
+
 (defun git-workspace-switch (root branch)
   "Switch clean repositories below ROOT to existing local BRANCH."
   (interactive (list (git-workspace--root) (read-string "Branch: ")))
@@ -257,7 +300,9 @@ Siblings are computed from `git-workspace-status-root'."
 (defvar-keymap git-workspace-command-map
   :doc "Git workspace commands."
   "l" #'git-workspace-list
+  "h" #'git-workspace-here
   "p" #'git-workspace-pull
+  "P" #'git-workspace-push
   "s" #'git-workspace-switch)
 
 (global-set-key (kbd "C-c w") git-workspace-command-map)
