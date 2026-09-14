@@ -100,11 +100,38 @@
 ;; ──────────────────────────────────────────────────────────────
 ;; 5. Org Structural Helpers (used by MCP tools in mcp-server-setting.el)
 ;; ──────────────────────────────────────────────────────────────
+
+(defvar wiki-org--temp-buffers nil
+  "Buffers opened by `wiki-org--with-buffer' for the current call.
+Only newly opened buffers are tracked; pre-existing buffers are not
+added.  Cleared by `wiki-org--cleanup-temp-buffers'.")
+
+(defun wiki-org--cleanup-temp-buffers ()
+  "Kill clean unmodified buffers opened by `wiki-org--with-buffer'."
+  (dolist (buf wiki-org--temp-buffers)
+    (when (and (buffer-live-p buf) (not (buffer-modified-p buf)))
+      (kill-buffer buf)))
+  (setq wiki-org--temp-buffers nil))
+
+(defmacro wiki-org--with-buffer (file &rest body)
+  "Run BODY with point in FILE's live buffer (widened, org-mode).
+Reuses FILE's buffer if already visiting it — left exactly as the
+user had it (untracked, never killed). Otherwise opens silently and
+tracks it for cleanup. BODY should call `save-buffer' itself when it
+mutates the buffer."
+  (declare (indent 1))
+  `(let* ((wiki-org--was-open (find-buffer-visiting ,file))
+          (wiki-org--buf (or wiki-org--was-open (find-file-noselect ,file t))))
+     (unless wiki-org--was-open
+       (push wiki-org--buf wiki-org--temp-buffers))
+     (unwind-protect
+         (with-current-buffer wiki-org--buf
+           (save-excursion (save-restriction (widen) ,@body)))
+       (wiki-org--cleanup-temp-buffers))))
+
 (defun wiki-org-find-heading (file heading-title)
   "FILE에서 HEADING-TITLE heading의 위치를 (start . end)로 반환."
-  (with-temp-buffer
-    (insert-file-contents file)
-    (org-mode)
+  (wiki-org--with-buffer file
     (goto-char (point-min))
     (when (re-search-forward (format "^\\*+ %s$" (regexp-quote heading-title)) nil t)
       (let ((start (line-beginning-position)))
@@ -113,9 +140,7 @@
 
 (defun wiki-org-heading-exists-p (file heading-title)
   "FILE에 HEADING-TITLE heading이 있는지 확인."
-  (with-temp-buffer
-    (insert-file-contents file)
-    (org-mode)
+  (wiki-org--with-buffer file
     (goto-char (point-min))
     (re-search-forward (format "^\\*+ %s$" (regexp-quote heading-title)) nil t)))
 
@@ -123,23 +148,19 @@
   "FILE의 AFTER-HEADING 뒤에 NEW-HEADING을 삽입."
   (unless (wiki-org-heading-exists-p file after-heading)
     (user-error "Heading '%s' not found in %s" after-heading file))
-  (with-temp-buffer
-    (insert-file-contents file)
-    (org-mode)
+  (wiki-org--with-buffer file
     (goto-char (point-min))
     (re-search-forward (format "^\\*+ %s$" (regexp-quote after-heading)) nil t)
     (org-end-of-subtree t t)
     (insert "\n" new-heading)
     (when body (insert "\n" body))
-    (write-region (point-min) (point-max) file nil 'silent)
+    (save-buffer)
     (message "✅ Inserted heading '%s' after '%s'" new-heading after-heading)))
 
 (defun wiki-org-append-to-heading (file heading-title &optional text)
   "FILE의 HEADING-TITLE body 끝에 TEXT를 추가."
   (if (wiki-org-heading-exists-p file heading-title)
-      (with-temp-buffer
-        (insert-file-contents file)
-        (org-mode)
+      (wiki-org--with-buffer file
         (goto-char (point-min))
         (re-search-forward (format "^\\*+ %s$" (regexp-quote heading-title)) nil t)
         (org-end-of-subtree t t)
@@ -147,7 +168,7 @@
         (unless (looking-back "\n\n" (max (- (point) 2) (point-min)))
           (insert "\n"))
         (when text (insert text "\n"))
-        (write-region (point-min) (point-max) file nil 'silent)
+        (save-buffer)
         (message "✅ Appended to heading '%s'" heading-title))
     (user-error "Heading '%s' not found — use wiki-org-insert-heading-after instead" heading-title)))
 
@@ -155,9 +176,7 @@
   "FILE의 HEADING-TITLE body 전체를 NEW-BODY로 교체."
   (unless (wiki-org-heading-exists-p file heading-title)
     (user-error "Heading '%s' not found in %s" heading-title file))
-  (with-temp-buffer
-    (insert-file-contents file)
-    (org-mode)
+  (wiki-org--with-buffer file
     (goto-char (point-min))
     (re-search-forward (format "^\\*+ %s$" (regexp-quote heading-title)) nil t)
     (let ((heading-start (line-beginning-position)))
@@ -165,16 +184,14 @@
       (delete-region heading-start (point))
       (goto-char heading-start)
       (insert (format "* %s\n%s\n" heading-title new-body))
-      (write-region (point-min) (point-max) file nil 'silent)
+      (save-buffer)
       (message "✅ Replaced body of heading '%s'" heading-title))))
 
 (defun wiki-org-insert-child-heading (file parent-heading child-heading &optional body)
   "FILE의 PARENT-HEADING 아래에 CHILD-HEADING을 자식으로 삽입."
   (unless (wiki-org-heading-exists-p file parent-heading)
     (user-error "Parent heading '%s' not found in %s" parent-heading file))
-  (with-temp-buffer
-    (insert-file-contents file)
-    (org-mode)
+  (wiki-org--with-buffer file
     (goto-char (point-min))
     (re-search-forward (format "^\\*+ %s$" (regexp-quote parent-heading)) nil t)
     (let ((parent-end (progn (org-end-of-subtree t t) (point)))
@@ -182,7 +199,7 @@
       (goto-char parent-end)
       (insert "\n" (format "%s %s" child-prefix child-heading))
       (when body (insert "\n" body))
-      (write-region (point-min) (point-max) file nil 'silent)
+      (save-buffer)
       (message "✅ Inserted child heading '%s' under '%s'" child-heading parent-heading))))
 
 ;; ──────────────────────────────────────────────────────────────

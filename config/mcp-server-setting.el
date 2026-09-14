@@ -5,9 +5,6 @@
 
 ;;; ── Helpers ──────────────────────────────────────────────────────────
 
-(defvar mcp-server--pending-edit-info nil
-  "Pending edit state for edit_buffer_with_preview: alist with symbol keys.")
-
 (defvar mcp--temp-buffers nil
   "List of buffers opened by custom MCP tool calls.
 Only newly opened buffers are tracked; pre-existing buffers are
@@ -303,52 +300,19 @@ Returns the buffer name and visibility status."
       (switch-to-buffer buf)
       (format "Report buffer created: %s\nBuffer is read-only. Use C-x C-q to edit if needed." buf-name))))
 
-;;; ── Tool: edit_buffer_with_preview ──────────────────────────────────
+;;; ── Tool: edit_buffer_silent ─────────────────────────────────────────
 
-(defun mcp--ediff-accept-and-quit ()
-  "Apply pending MCP edit to the target buffer and quit ediff."
-  (interactive)
-  (if (null mcp-server--pending-edit-info)
-      (message "No pending MCP edit.")
-    (let-alist mcp-server--pending-edit-info
-      (with-current-buffer .target-buf
-        (erase-buffer)
-        (insert .new-content))
-      (let ((old-b .old-buf)
-            (new-b .new-buf)
-            (tgt   (buffer-name .target-buf)))
-        (setq mcp-server--pending-edit-info nil)
-        (ignore-errors (ediff-quit nil))
-        (dolist (b (list old-b new-b))
-          (when (buffer-live-p b) (kill-buffer b)))
-        (message "MCP edit applied to %s" tgt)))))
-
-(defun mcp--ediff-setup-keys ()
-  "Bind C-c C-c in the ediff control panel to accept the MCP edit."
-  (define-key ediff-mode-map (kbd "C-c C-c") #'mcp--ediff-accept-and-quit))
-
-(defun mcp--handler-edit-buffer-with-preview (args)
-  (let* ((buf-name    (mcp--tool-arg args 'buffer_name))
+(defun mcp--handler-edit-buffer-silent (args)
+  (let* ((file (mcp--tool-arg args 'file))
          (new-content (mcp--tool-arg args 'new_content))
-         (target-buf  (get-buffer buf-name)))
-    (unless target-buf
-      (error "Buffer not found: %s" buf-name))
-    (let* ((mode    (with-current-buffer target-buf major-mode))
-           (old-buf (generate-new-buffer (format " *mcp-old:%s*" buf-name)))
-           (new-buf (generate-new-buffer (format " *mcp-new:%s*" buf-name))))
-      (with-current-buffer old-buf
-        (insert (with-current-buffer target-buf (buffer-string)))
-        (ignore-errors (funcall mode)))
-      (with-current-buffer new-buf
-        (insert new-content)
-        (ignore-errors (funcall mode)))
-      (setq mcp-server--pending-edit-info
-            `((target-buf  . ,target-buf)
-              (old-buf     . ,old-buf)
-              (new-buf     . ,new-buf)
-              (new-content . ,new-content)))
-      (ediff-buffers old-buf new-buf '(mcp--ediff-setup-keys))
-      "ediff opened — C-c C-c: apply, q: cancel")))
+         (buf (mcp--buf-ensure-open file)))
+    (unwind-protect
+        (with-current-buffer buf
+          (erase-buffer)
+          (insert new-content)
+          (save-buffer)
+          (format "Updated and saved: %s" file))
+      (mcp--cleanup-temp-buffers))))
 
 ;;; ── Helpers ──────────────────────────────────────────────────────────
 
@@ -490,15 +454,15 @@ Claude Code에서 emacs MCP 서버에 연결하려면 socat이 필요합니다.
 
   (mcp-server-register-tool
    (make-mcp-server-tool
-    :name "edit_buffer_with_preview"
-    :title "Edit Buffer with Preview"
-    :description "버퍼 수정을 ediff로 미리 보여준 뒤 사용자 승인(C-c C-c) 후 적용. eval-elisp 직접 수정 대체."
+    :name "edit_buffer_silent"
+    :title "Edit Buffer Silently"
+    :description "파일을 바로 수정하고 저장. 파일이 안 열려있으면 백그라운드에서 연다. .el 파일 수정의 기본 경로."
     :input-schema '((type . "object")
                     (properties
-                     . ((buffer_name . ((type . "string") (description . "수정할 버퍼 이름")))
+                     . ((file . ((type . "string") (description . "수정할 파일의 절대 경로 (안 열려있으면 백그라운드에서 염)")))
                         (new_content . ((type . "string") (description . "새 전체 내용")))))
-                    (required . ["buffer_name" "new_content"]))
-    :function #'mcp--handler-edit-buffer-with-preview))
+                    (required . ["file" "new_content"]))
+    :function #'mcp--handler-edit-buffer-silent))
 
   ;; ── Org structural editing helpers (wiki-tools.el) ─────────────────
 
