@@ -209,12 +209,21 @@ Siblings are computed from `git-workspace-status-root'."
 
 ;; Surface the same three commands in magit's own `?' menu, but only
 ;; while browsing a status buffer opened via `git-workspace-list'.
-(transient-append-suffix 'magit-dispatch '(2)
-  ["Git Workspace"
-   :if (lambda () (bound-and-true-p git-workspace-status-nav-mode))
-   ("n" "다음 저장소 (C-c C-f)"     git-workspace-status-next)
-   ("p" "이전 저장소 (C-c C-b)"     git-workspace-status-previous)
-   ("0" "목록으로 복귀 (C-c C-k)"   git-workspace-status-back-to-list)])
+;; `defvar' leaves an already-bound value alone, so this guard makes the
+;; append idempotent across `eval-buffer'/`load-file' reloads within the
+;; same session — otherwise every reload appends another "Git Workspace"
+;; group and it piles up in the `?' menu.
+(defvar git-workspace--dispatch-suffix-installed nil
+  "Non-nil once the Git Workspace group has been added to `magit-dispatch'.")
+
+(unless git-workspace--dispatch-suffix-installed
+  (transient-append-suffix 'magit-dispatch '(2)
+    ["Git Workspace"
+     :if (lambda () (bound-and-true-p git-workspace-status-nav-mode))
+     ("n" "다음 저장소 (C-c C-f)"     git-workspace-status-next)
+     ("p" "이전 저장소 (C-c C-b)"     git-workspace-status-previous)
+     ("0" "목록으로 복귀 (C-c C-k)"   git-workspace-status-back-to-list)])
+  (setq git-workspace--dispatch-suffix-installed t))
 
 ;;; Bulk operations
 
