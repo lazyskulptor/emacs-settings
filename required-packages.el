@@ -81,8 +81,8 @@
 ;; 15. Slack
 (require 'slack-setting)
 
-;; 16. Agent Shell
-(require 'agent-shell-setting)
+;; 16. OpenCode Shell
+(require 'opencode-shell-setting)
 
 ;; 16.1. Aider Integration
 (require 'aider-setting)
