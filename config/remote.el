@@ -636,6 +636,25 @@ ez-tunnel 스크립트의 EZ_STATE_FILE 값과 동일한 로직."
   :type 'file
   :group 'ssh-servers)
 
+(defconst my/ez-tunnel-proxy-environment-variables
+  '("http_proxy" "https_proxy" "HTTP_PROXY" "HTTPS_PROXY")
+  "환경에 동기화할 ez-tunnel HTTP 프록시 변수 목록.")
+
+(defun my/ez-tunnel-set-proxy-environment (proxy)
+  "모든 로컬 버퍼와 기본 환경의 프록시 변수 값을 PROXY로 설정한다."
+  (let (updated-environment)
+    (let ((process-environment
+           (copy-sequence (default-value 'process-environment))))
+      (dolist (variable my/ez-tunnel-proxy-environment-variables)
+        (setenv variable proxy))
+      (setq updated-environment process-environment))
+    (setq-default process-environment updated-environment))
+  (dolist (buffer (buffer-list))
+    (with-current-buffer buffer
+      (unless (file-remote-p default-directory)
+        (dolist (variable my/ez-tunnel-proxy-environment-variables)
+          (setenv variable proxy))))))
+
 (defun my/ez-tunnel-status ()
   "ez-tunnel SSH 터널 상태를 확인하고 Emacs 프록시 환경을 동기화한다.
 터널이 활성 상태면 HTTP/HTTPS 프록시를 로컬 Squid 포워딩으로 설정하고,
@@ -643,14 +662,10 @@ ez-tunnel 스크립트의 EZ_STATE_FILE 값과 동일한 로직."
   (interactive)
   (if (file-exists-p my/ez-tunnel-state-file)
       (progn
-        (setenv "http_proxy" "http://localhost:3128")
-        (setenv "https_proxy" "http://localhost:3128")
-        (setenv "HTTP_PROXY" "http://localhost:3128")
-        (setenv "HTTPS_PROXY" "http://localhost:3128")
+        (my/ez-tunnel-set-proxy-environment "http://localhost:3128")
         (message "[ez-tunnel] SSH 터널 활성 — SOCKS5:localhost:1081 / HTTP:localhost:3128")
         t)
-    (dolist (variable '("http_proxy" "https_proxy" "HTTP_PROXY" "HTTPS_PROXY"))
-      (setenv variable nil))
+    (my/ez-tunnel-set-proxy-environment nil)
     (display-warning
      'ez-tunnel
      (concat "SSH 터널이 비활성화되어 있습니다.\n"
