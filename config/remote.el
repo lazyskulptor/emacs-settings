@@ -637,21 +637,27 @@ ez-tunnel 스크립트의 EZ_STATE_FILE 값과 동일한 로직."
   :group 'ssh-servers)
 
 (defun my/ez-tunnel-status ()
-  "ez-tunnel SSH 터널 활성 상태 확인.
-터널 활성 시 성공 메시지, 비활성 시 경고를 표시.
-interactive하므로 M-x 로 수동 확인 가능."
+  "ez-tunnel SSH 터널 상태를 확인하고 Emacs 프록시 환경을 동기화한다.
+터널이 활성 상태면 HTTP/HTTPS 프록시를 로컬 Squid 포워딩으로 설정하고,
+비활성 상태면 해당 프록시 환경 변수를 제거한다."
   (interactive)
   (if (file-exists-p my/ez-tunnel-state-file)
       (progn
-        (message "[ez-tunnel] SSH 터널 활성 — SOCKS5:localhost:1081 / HTTP:localhost:8118")
+        (setenv "http_proxy" "http://localhost:3128")
+        (setenv "https_proxy" "http://localhost:3128")
+        (setenv "HTTP_PROXY" "http://localhost:3128")
+        (setenv "HTTPS_PROXY" "http://localhost:3128")
+        (message "[ez-tunnel] SSH 터널 활성 — SOCKS5:localhost:1081 / HTTP:localhost:3128")
         t)
+    (dolist (variable '("http_proxy" "https_proxy" "HTTP_PROXY" "HTTPS_PROXY"))
+      (setenv variable nil))
     (display-warning
      'ez-tunnel
      (concat "SSH 터널이 비활성화되어 있습니다.\n"
              "'ez-tunnel start'로 시작하거나,\n"
              "프록시 없이 작업 중이라면 이 경고는 무시하세요.")
      :warning)
-    (message "[ez-tunnel] SSH 터널 비활성 — 'M-x my/ez-tunnel-status'로 재확인")
+    (message "[ez-tunnel] SSH 터널 비활성 — 프록시 환경 해제")
     nil))
 
 (provide 'remote)
