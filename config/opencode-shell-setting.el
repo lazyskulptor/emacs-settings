@@ -1,7 +1,7 @@
 ;;; opencode-shell-setting.el --- OpenCode Shell integration -*- lexical-binding: t; -*-
 
 (defvar my/opencode-shell-prefix-map (make-sparse-keymap)
-  "OpenCode Shell commands under `C-c o'.")
+  "OpenCode Shell commands under `C-a'.")
 
 ;; Reapply bindings when this file is evaluated so an existing defvar map is
 ;; updated after adding commands such as `opencode-shell-find-session'.
@@ -10,7 +10,7 @@
 (define-key my/opencode-shell-prefix-map (kbd "b") #'opencode-shell-switch-buffer)
 (define-key my/opencode-shell-prefix-map (kbd "f") #'opencode-shell-find-session)
 
-(global-set-key (kbd "C-c o") my/opencode-shell-prefix-map)
+(global-set-key (kbd "C-a") my/opencode-shell-prefix-map)
 
 (if opencode-shell-local-path
     (progn
