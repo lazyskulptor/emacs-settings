@@ -1,5 +1,16 @@
 ;;; opencode-shell-setting.el --- OpenCode Shell integration -*- lexical-binding: t; -*-
 
+(defvar my/opencode-shell-prefix-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "l") #'opencode-shell)
+    (define-key map (kbd "s") #'opencode-shell-start)
+    (define-key map (kbd "b") #'opencode-shell-switch-buffer)
+    (define-key map (kbd "f") #'opencode-shell-find-session)
+    map)
+  "OpenCode Shell commands under `C-c o'.")
+
+(global-set-key (kbd "C-c o") my/opencode-shell-prefix-map)
+
 (if opencode-shell-local-path
     (progn
       (add-to-list 'load-path opencode-shell-local-path)
@@ -8,8 +19,10 @@
         :commands (opencode-shell
                    opencode-shell-status
                    opencode-shell-restart
-                   opencode-shell-reload)
-        :bind (("C-c a" . opencode-shell))
+                   opencode-shell-reload
+                   opencode-shell-start
+                   opencode-shell-find-session
+                   opencode-shell-switch-buffer)
         :demand t))
   (use-package opencode-shell
     :straight (opencode-shell :type git :host github
@@ -18,8 +31,10 @@
     :commands (opencode-shell
                opencode-shell-status
                opencode-shell-restart
-               opencode-shell-reload)
-    :bind (("C-c a" . opencode-shell))
+               opencode-shell-reload
+               opencode-shell-start
+               opencode-shell-find-session
+               opencode-shell-switch-buffer)
     :demand t))
 
 (provide 'opencode-shell-setting)
