@@ -29,6 +29,11 @@
 ;; TRAMP auto-save 파일을 로컬 /tmp에 저장 허용 (프롬프트 제거)
 (setq tramp-allow-unsafe-temporary-files t)
 
+;; TRAMP 내부 프로브 셸(exec env ... /bin/sh -i)이 원격 서버의
+;; ~/.tramp_history (기본값)에 계속 누적되는 것을 방지.
+;; t로 설정하면 HISTFILE='', HISTSIZE=0으로 넘겨서 아예 기록을 남기지 않음.
+(setq tramp-histfile-override t)
+
 ;; TRAMP 경로에서 VC 자동 비활성화 (hook 방식)
 (add-hook 'find-file-hook
           (lambda ()
@@ -136,43 +141,46 @@
 
 ;; ── TRAMP 비밀번호 자동 입력 ───────────────────────────────
 
+(defun my/tramp-read-passwd-advice (orig-fun proc &optional prompt)
+  "PROC의 TRAMP 접속 정보로 credentials.org에서 비밀번호를 찾아 자동 입력.
+Named function으로 정의해 `remote.el' 재평가 시 advice가 중복으로
+쌓이지 않도록 함 (익명 lambda는 재평가마다 새 advice로 추가됨)."
+  (condition-case err
+      (let* ((vec (process-get proc 'tramp-vector))
+             (method (and vec (tramp-file-name-method vec)))
+             (user (substring-no-properties (or (tramp-file-name-user vec) "")))
+             (host-raw (substring-no-properties (or (tramp-file-name-host vec) "")))
+             (host (if (and host-raw (string-match "^\\([^#]+\\)" host-raw))
+                       (match-string 1 host-raw)
+                     host-raw))
+             (port (and vec (or (tramp-file-name-port vec) 22)))
+             (key (format "%s:%s" host port))
+             (tag-info (gethash key ssh-servers--tag-map))
+             (tag (car tag-info))
+             (ssh-user (cdr tag-info)))
+        (if (or (null vec)
+                (null method)
+                (not (member method '("ssh" "sudo"))))
+            (funcall orig-fun proc prompt)
+          (let* ((cache-user (or ssh-user user))
+                 (spec (list :host (format "%s#%s" host port)
+                             :user cache-user
+                             :port method))
+                 (cached (auth-source-recall spec)))
+            (if cached
+                cached
+              (if (and tag (not (string-empty-p user)))
+                  (let ((password (ssh-servers--find-password tag (or ssh-user user))))
+                    (if password
+                        (progn
+                          (auth-source-remember spec password)
+                          password)
+                      (funcall orig-fun proc prompt)))
+                (funcall orig-fun proc prompt))))))
+    (error (funcall orig-fun proc prompt))))
+
 (eval-after-load 'tramp
-  '(progn
-     (advice-add 'tramp-read-passwd :around
-                 (lambda (orig-fun proc &optional prompt)
-                   (condition-case err
-                       (let* ((vec (process-get proc 'tramp-vector))
-                              (method (and vec (tramp-file-name-method vec)))
-                              (user (substring-no-properties (or (tramp-file-name-user vec) "")))
-                              (host-raw (substring-no-properties (or (tramp-file-name-host vec) "")))
-                              (host (if (and host-raw (string-match "^\\([^#]+\\)" host-raw))
-                                        (match-string 1 host-raw)
-                                      host-raw))
-                              (port (and vec (or (tramp-file-name-port vec) 22)))
-                              (key (format "%s:%s" host port))
-                              (tag-info (gethash key ssh-servers--tag-map))
-                              (tag (car tag-info))
-                              (ssh-user (cdr tag-info)))
-                         (if (or (null vec)
-                                 (null method)
-                                 (not (member method '("ssh" "sudo"))))
-                             (funcall orig-fun proc prompt)
-                           (let* ((cache-user (or ssh-user user))
-                                  (spec (list :host (format "%s#%s" host port)
-                                              :user cache-user
-                                              :port method))
-                                  (cached (auth-source-recall spec)))
-                             (if cached
-                                 cached
-                               (if (and tag (not (string-empty-p user)))
-                                   (let ((password (ssh-servers--find-password tag (or ssh-user user))))
-                                     (if password
-                                         (progn
-                                           (auth-source-remember spec password)
-                                           password)
-                                       (funcall orig-fun proc prompt)))
-                                 (funcall orig-fun proc prompt))))))
-                     (error (funcall orig-fun proc prompt)))))))
+  '(advice-add 'tramp-read-passwd :around #'my/tramp-read-passwd-advice))
 
 ;; ── SSH 기능 ───────────────────────────────────────────────
 
@@ -366,22 +374,40 @@
       (message "[tramp-env] 로컬 환경변수로 복원 및 초기화 완료"))))
 
 ;; eshell-search-path에 advice 추가
+;; remote-id별로 command 조회 결과를 캐싱 (매 명령마다 원격 stat 호출로
+;; 인한 지연 방지). 값이 nil(못 찾음)인 경우도 캐시해야 하므로 :not-found
+;; sentinel로 구분한다.
+(defvar my/tramp-search-path-cache (make-hash-table :test 'equal)
+  "(remote-id . command) → 원격 실행 파일 절대 경로(또는 nil) 캐시.")
+
+(defun my/tramp-search-path-cache-clear ()
+  "TRAMP 원격 명령 검색 캐시를 비운다.
+원격 서버에 새 패키지를 설치해 PATH 내용이 바뀌었을 때 사용."
+  (interactive)
+  (clrhash my/tramp-search-path-cache))
+
 (defun my/tramp-eshell-search-path (orig-fun command)
   "TRAMP 환경에서 eshell-search-path를 개선.
 TRAMP 환경에서는 tramp-remote-path를 사용하여 원격 명령을 검색합니다."
   (or (funcall orig-fun command)
       (when (file-remote-p default-directory)
-        ;; TRAMP 환경에서는 tramp-remote-path를 사용하여 명령 검색
         (let* ((remote-id (file-remote-p default-directory))
-               (remote-paths (cl-remove-if-not #'stringp
-                                                (or tramp-remote-path
-                                                    (split-string my-remote-path-cache ":" t))))
-               (remote-cmd (locate-file command
-                                        (mapcar (lambda (p) (concat remote-id p))
-                                                remote-paths)
-                                        exec-suffixes)))
-          (when (and remote-cmd (file-executable-p remote-cmd))
-            remote-cmd)))))
+               (cache-key (cons remote-id command))
+               (cached (gethash cache-key my/tramp-search-path-cache :not-found)))
+          (if (not (eq cached :not-found))
+              cached
+            ;; TRAMP 환경에서는 tramp-remote-path를 사용하여 명령 검색
+            (let* ((remote-paths (cl-remove-if-not #'stringp
+                                                    (or tramp-remote-path
+                                                        (split-string my-remote-path-cache ":" t))))
+                   (remote-cmd (locate-file command
+                                            (mapcar (lambda (p) (concat remote-id p))
+                                                    remote-paths)
+                                            exec-suffixes))
+                   (result (when (and remote-cmd (file-executable-p remote-cmd))
+                             remote-cmd)))
+              (puthash cache-key result my/tramp-search-path-cache)
+              result))))))
 
 (advice-add 'eshell-search-path :around #'my/tramp-eshell-search-path)
 

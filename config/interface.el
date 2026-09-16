@@ -328,8 +328,13 @@ Second TAB inserts the selected candidate."
 ;; eshell-send-input 실행 전 corfu-complete를 먼저 호출.
 (defun my/before-eshell-send (&rest _)
   "Complete corfu candidate before sending eshell input.
-Fixes corfu-map priority issue in eshell."
-  (when (and (bound-and-true-p corfu-mode) completion-in-region--data)
+Fixes corfu-map priority issue in eshell.
+`completion-in-region-mode'가 실제로 켜져 있는지까지 확인해서, 이전
+completion 세션의 잔여 `completion-in-region--data'만으로 오작동하며
+의도치 않은 candidate가 자동 삽입되는 것을 방지한다."
+  (when (and (bound-and-true-p corfu-mode)
+             (bound-and-true-p completion-in-region-mode)
+             completion-in-region--data)
     (corfu-complete)))
 
 (advice-add 'eshell-send-input :before #'my/before-eshell-send)

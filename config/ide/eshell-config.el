@@ -23,7 +23,10 @@
                 (abbreviate-propt (split-string (abbreviate-file-name (eshell/pwd)) "/"))
                 (if (= (user-uid) 0) " # " " ✗ "))))
 
-(setq eshell-prompt-regexp "^[^#$✗
+;; 맨 앞 리터럴 공백을 강제해서, 원격 명령 출력 중간의 "... # "/"... $ " 같은
+;; 우연한 패턴을 프롬프트로 오인하는 것을 방지 (eshell-prompt-function이 항상
+;; 선행 공백 하나로 시작하는 것과 일치시킴).
+(setq eshell-prompt-regexp "^ [^#$✗
 ]* [#$✗] ")
 
 ;; ─────────────────────────────────────────────────────────────
@@ -139,7 +142,12 @@ Usage: el (expression) or el expression"
             (evil-define-key 'insert eshell-mode-map (kbd "RET") 'eshell-send-input)
             (evil-define-key 'insert eshell-mode-map (kbd "<return>") 'eshell-send-input)
             (evil-define-key 'insert eshell-mode-map (kbd "S-RET") 'newline)
-            (evil-define-key 'insert eshell-mode-map (kbd "M-RET") 'newline)))
+            (evil-define-key 'insert eshell-mode-map (kbd "M-RET") 'newline)
+            ;; TRAMP 원격 환경변수 기능(remote.el)이 로컬 복귀 시 되돌릴 수 있도록
+            ;; eshell 시작 시점의 원래 값을 buffer-local로 백업
+            (setq-local my-original-exec-path exec-path)
+            (setq-local my-original-process-environment process-environment)
+            (setq-local my-original-eshell-variable-aliases-list eshell-variable-aliases-list)))
 
 ;; ─────────────────────────────────────────────────────────────
 ;; pcomplete 규칙: eshell alias 자동완성
