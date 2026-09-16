@@ -31,8 +31,11 @@
 
 ;; TRAMP 내부 프로브 셸(exec env ... /bin/sh -i)이 원격 서버의
 ;; ~/.tramp_history (기본값)에 계속 누적되는 것을 방지.
-;; t로 설정하면 HISTFILE='', HISTSIZE=0으로 넘겨서 아예 기록을 남기지 않음.
-(setq tramp-histfile-override t)
+;; "/dev/null"을 명시 지정 — 셸 종류(bash/dash/sh)와 무관하게 히스토리
+;; 기록 시도 자체가 항상 버려져서 파일이 아예 생기지 않음.
+;; (t로 설정 시 HISTFILE=''/HISTSIZE=0로 넘어가는데, 셸에 따라 빈
+;; HISTFILE 처리가 다를 수 있어 /dev/null이 더 확실함)
+(setq tramp-histfile-override "/dev/null")
 
 ;; TRAMP 경로에서 VC 자동 비활성화 (hook 방식)
 (add-hook 'find-file-hook
