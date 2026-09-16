@@ -203,7 +203,7 @@ Named function으로 정의해 `remote.el' 재평가 시 advice가 중복으로
       (with-current-buffer buf
         (eshell-mode)
         (setq default-directory path))
-      (pop-to-buffer buf))))
+      (switch-to-buffer buf))))
 
 (defun ssh-servers--copy-ssh (server)
   "SSH 명령어를 kill-ring에 복사."
