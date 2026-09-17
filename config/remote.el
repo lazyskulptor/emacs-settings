@@ -1,9 +1,9 @@
-;;; remote.el --- TRAMP, SSH/RDP 서버 관리, 원격 환경변수 설정 -*- lexical-binding: t; -*-
+;;; remote.el --- TRAMP, SSH/RDP/WinRM 서버 관리, 원격 환경변수 설정 -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; TRAMP, SSH/RDP 서버 관리, eshell 원격 환경변수 자동 로드 통합
+;; TRAMP, SSH/RDP/WinRM 서버 관리, eshell 원격 환경변수 자동 로드 통합
 ;; - TRAMP 기본 설정 (타임아웃, 비밀번호 캐시, auth-source)
-;; - SSH/RDP 서버 관리 (org-link, credentials.org)
+;; - SSH/RDP/WinRM 서버 관리 (org-link, credentials.org)
 ;; - eshell TRAMP 원격 환경변수 자동 로드
 ;; - global-path (경로 파싱, TRAMP 자동완성)
 
@@ -67,7 +67,7 @@
 ;; ─────────────────────────────────────────────────────────────
 
 (defgroup ssh-servers nil
-  "SSH/RDP server management from org files."
+  "SSH/RDP/WinRM server management from org files."
   :group 'tools)
 
 (defcustom ssh-servers-file "~/.ssh/servers.org"
@@ -79,6 +79,46 @@
   "Path to credentials.org file."
   :type 'file
   :group 'ssh-servers)
+
+(defcustom winrm-default-port 5986
+  "Default HTTPS port for WinRM connections."
+  :type 'integer
+  :group 'ssh-servers)
+
+(defcustom winrm-use-ssl t
+  "Whether WinRM automation and CLI connections use HTTPS."
+  :type 'boolean
+  :group 'ssh-servers)
+
+(defcustom winrm-validate-certificate t
+  "Whether the Python WinRM client validates the HTTPS certificate."
+  :type 'boolean
+  :group 'ssh-servers)
+
+(defcustom winrm-python-command
+  (expand-file-name ".venv/bin/python" my/emacs-dir)
+  "Python executable used for the WinRM bridge."
+  :type 'file
+  :group 'ssh-servers)
+
+(defcustom winrm-client-script
+  (expand-file-name "scripts/winrm_client.py" my/emacs-dir)
+  "Python bridge used to upload and run PowerShell scripts."
+  :type 'file
+  :group 'ssh-servers)
+
+(defcustom winrm-iterm-application "iTerm"
+  "macOS application name used for interactive WinRM sessions."
+  :type 'string
+  :group 'ssh-servers)
+
+(defcustom winrm-cli-program "evil-winrm"
+  "Executable opened in iTerm for interactive WinRM sessions."
+  :type 'string
+  :group 'ssh-servers)
+
+(defvar winrm-selected-server nil
+  "Server plist selected for PowerShell buffer commands.")
 
 ;; Hash table: "host:port" → tag 매핑
 (defvar ssh-servers--tag-map (make-hash-table :test 'equal)
@@ -253,6 +293,179 @@ Named function으로 정의해 `remote.el' 재평가 시 advice가 중복으로
     (kill-new addr)
     (message "RDP address copied: %s" addr)))
 
+;; ── WinRM 기능 ─────────────────────────────────────────────
+
+(defun winrm--executable (program)
+  "Return executable path for PROGRAM or signal a user error."
+  (or (and (file-name-absolute-p program)
+           (file-executable-p program)
+           program)
+      (executable-find program)
+      (user-error "WinRM executable not found: %s" program)))
+
+(defun winrm--server-value (server key label)
+  "Return SERVER value for KEY or signal a user error mentioning LABEL."
+  (let ((value (plist-get server key)))
+    (if (and (stringp value) (not (string-empty-p value)))
+        value
+      (user-error "WinRM server has no %s" label))))
+
+(defun winrm--select-server (server)
+  "Select SERVER for PowerShell buffer upload and run commands."
+  (winrm--server-value server :host "host")
+  (winrm--server-value server :account "account")
+  (setq winrm-selected-server (copy-sequence server))
+  (message "WinRM server selected: %s@%s"
+           (plist-get server :account)
+           (plist-get server :host)))
+
+(defun winrm--selected-server ()
+  "Return the selected WinRM server or signal a user error."
+  (or winrm-selected-server
+      (user-error "Select a server with winrm:select first")))
+
+(defun winrm--password (server)
+  "Return the credential password for SERVER."
+  (let* ((tag (plist-get server :tag))
+         (account (winrm--server-value server :account "account"))
+         (password (ssh-servers--find-password tag account)))
+    (or (and password (not (string-empty-p password)) password)
+        (user-error "No WinRM password found for %s" account))))
+
+(defun winrm--process-sentinel (process event)
+  "Report PROCESS completion described by EVENT."
+  (when (memq (process-status process) '(exit signal))
+    (let ((status (process-exit-status process)))
+      (message "WinRM process %s: %s"
+               (if (zerop status) "completed" "failed")
+               (string-trim event)))))
+
+(defun winrm--start (operation server local-file &optional remote-path arguments)
+  "Run WinRM OPERATION for SERVER and LOCAL-FILE.
+REMOTE-PATH overrides the generated destination.  ARGUMENTS are passed to the
+PowerShell script when OPERATION is `run'."
+  (let* ((python (winrm--executable winrm-python-command))
+         (script (expand-file-name winrm-client-script))
+         (host (winrm--server-value server :host "host"))
+         (account (winrm--server-value server :account "account"))
+         (password (winrm--password server))
+         (file (expand-file-name local-file))
+         (buffer (get-buffer-create (format "*WinRM %s*" host)))
+         (command (list python script (symbol-name operation)
+                        "--host" host
+                        "--username" account
+                        "--port" (number-to-string winrm-default-port)
+                        (if winrm-use-ssl "--ssl" "--no-ssl")
+                        (if winrm-validate-certificate
+                            "--cert-validation"
+                          "--no-cert-validation")
+                        "--local-file" file)))
+    (unless (file-readable-p script)
+      (user-error "WinRM bridge not found: %s" script))
+    (unless (file-readable-p file)
+      (user-error "PowerShell file not found: %s" file))
+    (when remote-path
+      (setq command (append command (list "--remote-path" remote-path))))
+    (dolist (argument arguments)
+      (setq command (append command (list "--argument" argument))))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer))
+      (compilation-mode))
+    (let ((process-environment (copy-sequence process-environment)))
+      (setenv "EMACS_WINRM_PASSWORD" password)
+      (make-process
+       :name (format "winrm-%s-%s" operation host)
+       :buffer buffer
+       :stderr buffer
+       :command command
+       :coding 'utf-8
+       :connection-type 'pipe
+       :noquery t
+       :sentinel #'winrm--process-sentinel))
+    (display-buffer buffer)))
+
+(defun winrm-upload-file (server file &optional remote-path)
+  "Upload FILE to SERVER, optionally at REMOTE-PATH."
+  (interactive (list (winrm--selected-server)
+                     (read-file-name "PowerShell file: " nil nil t nil
+                                     (lambda (path)
+                                       (or (file-directory-p path)
+                                           (string-match-p "\\.ps1\\'" path))))))
+  (winrm--start 'upload server file remote-path))
+
+(defun winrm-run-file (server file &optional remote-path arguments)
+  "Upload and run FILE on SERVER with optional REMOTE-PATH and ARGUMENTS."
+  (interactive (list (winrm--selected-server)
+                     (read-file-name "PowerShell file: " nil nil t nil
+                                     (lambda (path)
+                                       (or (file-directory-p path)
+                                           (string-match-p "\\.ps1\\'" path))))))
+  (winrm--start 'run server file remote-path arguments))
+
+(defun winrm--current-powershell-file ()
+  "Return the current saved PowerShell file."
+  (unless buffer-file-name
+    (user-error "Current buffer is not visiting a file"))
+  (when (buffer-modified-p)
+    (user-error "Save the PowerShell file before sending it"))
+  (unless (string-match-p "\\.ps1\\'" buffer-file-name)
+    (user-error "Current file is not a .ps1 file"))
+  buffer-file-name)
+
+(defun winrm--applescript-string (value)
+  "Quote VALUE for an AppleScript string literal."
+  (concat "\""
+          (replace-regexp-in-string
+           "\"" "\\\\\""
+           (replace-regexp-in-string "\\\\" "\\\\\\\\" value t t)
+           t t)
+          "\""))
+
+(defun winrm-upload-current-file ()
+  "Upload the current PowerShell file to the selected WinRM server."
+  (interactive)
+  (winrm-upload-file (winrm--selected-server)
+                     (winrm--current-powershell-file)))
+
+(defun winrm-run-current-file ()
+  "Upload and run the current PowerShell file on the selected WinRM server."
+  (interactive)
+  (winrm-run-file (winrm--selected-server)
+                  (winrm--current-powershell-file)))
+
+(defun winrm--open-cli (server)
+  "Open an interactive Evil-WinRM session for SERVER in iTerm."
+  (let* ((host (winrm--server-value server :host "host"))
+         (account (winrm--server-value server :account "account"))
+         (evil-winrm (winrm--executable winrm-cli-program))
+         (command (mapconcat
+                   #'shell-quote-argument
+                   (append (list evil-winrm "-i" host "-u" account
+                                 "-P" (number-to-string winrm-default-port))
+                           (when winrm-use-ssl (list "-S")))
+                   " "))
+         (script (list "on run argv"
+                       (format "tell application %s"
+                               (winrm--applescript-string winrm-iterm-application))
+                       "activate"
+                       "if (count of windows) is 0 then"
+                       "create window with default profile"
+                       "else"
+                       "tell current window to create tab with default profile"
+                       "end if"
+                       "tell current session of current window to write text (item 1 of argv)"
+                       "end tell"
+                       "end run"))
+         (args nil))
+    (unless (zerop (call-process "open" nil nil nil "-Ra" winrm-iterm-application))
+      (user-error "iTerm application not found: %s" winrm-iterm-application))
+    (dolist (line script)
+      (setq args (append args (list "-e" line))))
+    (setq args (append args (list "--" command)))
+    (apply #'start-process "winrm-iterm" nil "osascript" args)
+    (message "Starting Evil-WinRM in iTerm: %s@%s" account host)))
+
 ;; ── org-link 핸들러 ────────────────────────────────────────
 
 (defun ssh-servers--link-follow (path)
@@ -297,10 +510,32 @@ Named function으로 정의해 `remote.el' 재평가 시 advice가 중복으로
                  (message "Password copied"))
              (ssh-servers--copy-pass (plist-get row :tag)
                                      (plist-get row :account))))
-          (t (message "Unknown rdp path: %s" path)))))
+           (t (message "Unknown rdp path: %s" path)))))
+
+(defun ssh-servers--link-follow-winrm (path)
+  "Handle a winrm: link action at the current server table row."
+  (let ((row (ssh-servers--current-row)))
+    (cond ((null row) (message "Not in a table row"))
+          ((string= path "select")
+           (winrm--select-server row))
+          ((string= path "upload")
+           (winrm--select-server row)
+           (call-interactively #'winrm-upload-file))
+          ((string= path "run")
+           (winrm--select-server row)
+           (call-interactively #'winrm-run-file))
+          ((string= path "cli")
+           (winrm--select-server row)
+           (winrm--open-cli row))
+          (t (message "Unknown winrm path: %s" path)))))
 
 (org-link-set-parameters "ssh" :follow #'ssh-servers--link-follow)
 (org-link-set-parameters "rdp" :follow #'ssh-servers--link-follow-rdp)
+(org-link-set-parameters "winrm" :follow #'ssh-servers--link-follow-winrm)
+
+(with-eval-after-load 'powershell
+  (define-key powershell-mode-map (kbd "C-c C-u") #'winrm-upload-current-file)
+  (define-key powershell-mode-map (kbd "C-c C-c") #'winrm-run-current-file))
 
 ;; ─────────────────────────────────────────────────────────────
 ;; eshell TRAMP 원격 환경변수 자동 로드
