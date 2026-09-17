@@ -74,6 +74,7 @@
       (ssh-servers--connect-rdp remote-winrm-test--server))
     (should (equal cli-program "osascript"))
     (should (equal rdp-program "sdl-freerdp"))
+    (should (seq-some (lambda (arg) (string-match-p "-u http_proxy" arg)) cli-args))
     (should (seq-some (lambda (arg) (string-match-p "proxychains4" arg)) cli-args))
     (should (seq-some (lambda (arg) (string-match-p "proxychains-winrm.conf" arg)) cli-args))
     (should (seq-some (lambda (arg) (string-match-p "evil-winrm" arg)) cli-args))

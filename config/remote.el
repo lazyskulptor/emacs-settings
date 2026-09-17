@@ -490,7 +490,12 @@ PowerShell script when OPERATION is `run'.  SECURE uses HTTPS when non-nil."
          (proxy-config (winrm--proxychains-config))
          (command (mapconcat
                    #'shell-quote-argument
-                   (append (list proxychains "-q" "-f" proxy-config
+                   (append (list "env"
+                                 "-u" "http_proxy"
+                                 "-u" "https_proxy"
+                                 "-u" "HTTP_PROXY"
+                                 "-u" "HTTPS_PROXY"
+                                 proxychains "-q" "-f" proxy-config
                                  evil-winrm "-i" host "-u" account
                                  "-P" (number-to-string
                                        (if secure winrm-https-port winrm-http-port)))
