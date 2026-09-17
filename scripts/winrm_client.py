@@ -22,6 +22,7 @@ def _add_connection_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--username", required=True)
     parser.add_argument("--port", type=int, default=5986)
     parser.add_argument("--auth", default="negotiate")
+    parser.add_argument("--proxy", help="Proxy URL, such as socks5h://127.0.0.1:1081")
     parser.add_argument(
         "--ssl", action=argparse.BooleanOptionalAction, default=True
     )
@@ -78,6 +79,7 @@ def _client(args: argparse.Namespace, password: str) -> Client:
         ssl=args.ssl,
         auth=args.auth,
         cert_validation=args.cert_validation,
+        proxy=args.proxy,
     )
 
 
