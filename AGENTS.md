@@ -85,6 +85,17 @@ npm install --prefix ~/.emacs.d
 - `typescript-language-server`, `yaml-language-server`, `bash-language-server`
 - `vscode-langservers-extracted`, `groovy-language-server`, `eslint`
 
+### PowerShell LSP (`~/.emacs.d/.cache/lsp/powershell-editor-services/`)
+PowerShell Editor Services는 공식 최신 릴리스를 설치 스크립트로 관리한다. 시스템에
+PowerShell 7의 `pwsh`가 먼저 설치되어 있어야 한다.
+
+```sh
+bash ~/.emacs.d/scripts/install-powershell-editor-services.sh
+```
+
+업데이트도 같은 명령을 다시 실행한다. `powershell-mode`에서 lsp-bridge가 시작될 때
+`config/ide/lsp-bridge.el`이 설치·로그·세션 경로를 환경변수로 전달한다.
+
 ### Go LSP (`~/.emacs.d/.cache/lsp/<name>/`)
 설치는 Emacs 명령으로 수행 (자동 설치 없음):
 

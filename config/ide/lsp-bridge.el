@@ -35,12 +35,23 @@
              :host github
              :repo "lazyskulptor/lsp-bridge"
              :branch "fix/org-babel-virtual-file"
+             :local-repo "~/Workspace/contribute/lsp-bridge-powershell"
              :files (:defaults "acm" "*.py" "langserver")
              :build (:not native-compile))
   :init
   (setq lsp-bridge-enable-with-tramp t)  ; TRAMP 지원 활성화
   (setq lsp-bridge-python-command (concat my/emacs-dir "/.venv/bin/python"))
   (setq lsp-bridge-user-langserver-dir (concat my/emacs-dir "/lsp-user-config"))
+  ;; PowerShell Editor Services paths used by the upstream langserver config.
+  (let* ((pses-dir (concat my/emacs-dir "/.cache/lsp/powershell-editor-services"))
+         (log-dir (concat pses-dir "/logs"))
+         (session-dir (concat pses-dir "/sessions")))
+    (make-directory log-dir t)
+    (make-directory session-dir t)
+    (setenv "LSP_BRIDGE_POWERSHELL_EDITOR_SERVICES_DIR" pses-dir)
+    (setenv "LSP_BRIDGE_POWERSHELL_LOG_PATH" log-dir)
+    (setenv "LSP_BRIDGE_POWERSHELL_SESSION_DETAILS_PATH"
+            (format "%s/session-%s.json" session-dir (emacs-pid))))
   ;; PATH/exec-path에 Emacs 내부 바이너리 디렉토리 즉시 등록
   (dolist (dir (list (concat my/emacs-dir "/.venv/bin")
                      (concat my/emacs-dir "/node_modules/.bin")))
