@@ -68,6 +68,9 @@
             (when (file-executable-p executable)
               (my/add-dir-to-path subdir)))))))
   :config
+  ;; Enable lsp-bridge for every upstream-supported major mode.
+  (global-lsp-bridge-mode)
+
   ;; Completion UI: corfu 사용
   (setq lsp-bridge-completion-ui 'corfu)
 
