@@ -80,14 +80,14 @@
   :type 'file
   :group 'ssh-servers)
 
-(defcustom winrm-default-port 5986
-  "Default HTTPS port for WinRM connections."
+(defcustom winrm-http-port 5985
+  "Default port for unencrypted winrm: connections."
   :type 'integer
   :group 'ssh-servers)
 
-(defcustom winrm-use-ssl t
-  "Whether WinRM automation and CLI connections use HTTPS."
-  :type 'boolean
+(defcustom winrm-https-port 5986
+  "Default port for encrypted winrms: connections."
+  :type 'integer
   :group 'ssh-servers)
 
 (defcustom winrm-validate-certificate t
@@ -119,6 +119,9 @@
 
 (defvar winrm-selected-server nil
   "Server plist selected for PowerShell buffer commands.")
+
+(defvar winrm-selected-secure nil
+  "Whether the selected server uses the encrypted winrms: transport.")
 
 ;; Hash table: "host:port" → tag 매핑
 (defvar ssh-servers--tag-map (make-hash-table :test 'equal)
@@ -310,12 +313,14 @@ Named function으로 정의해 `remote.el' 재평가 시 advice가 중복으로
         value
       (user-error "WinRM server has no %s" label))))
 
-(defun winrm--select-server (server)
-  "Select SERVER for PowerShell buffer upload and run commands."
+(defun winrm--select-server (server &optional secure)
+  "Select SERVER and SECURE transport for PowerShell buffer commands."
   (winrm--server-value server :host "host")
   (winrm--server-value server :account "account")
-  (setq winrm-selected-server (copy-sequence server))
-  (message "WinRM server selected: %s@%s"
+  (setq winrm-selected-server (copy-sequence server)
+        winrm-selected-secure secure)
+  (message "%s server selected: %s@%s"
+           (if secure "WinRM SSL" "WinRM")
            (plist-get server :account)
            (plist-get server :host)))
 
@@ -340,10 +345,10 @@ Named function으로 정의해 `remote.el' 재평가 시 advice가 중복으로
                (if (zerop status) "completed" "failed")
                (string-trim event)))))
 
-(defun winrm--start (operation server local-file &optional remote-path arguments)
+(defun winrm--start (operation server local-file &optional remote-path arguments secure)
   "Run WinRM OPERATION for SERVER and LOCAL-FILE.
 REMOTE-PATH overrides the generated destination.  ARGUMENTS are passed to the
-PowerShell script when OPERATION is `run'."
+PowerShell script when OPERATION is `run'.  SECURE uses HTTPS when non-nil."
   (let* ((python (winrm--executable winrm-python-command))
          (script (expand-file-name winrm-client-script))
          (host (winrm--server-value server :host "host"))
@@ -354,9 +359,10 @@ PowerShell script when OPERATION is `run'."
          (command (list python script (symbol-name operation)
                         "--host" host
                         "--username" account
-                        "--port" (number-to-string winrm-default-port)
-                        (if winrm-use-ssl "--ssl" "--no-ssl")
-                        (if winrm-validate-certificate
+                        "--port" (number-to-string
+                                  (if secure winrm-https-port winrm-http-port))
+                        (if secure "--ssl" "--no-ssl")
+                        (if (and secure winrm-validate-certificate)
                             "--cert-validation"
                           "--no-cert-validation")
                         "--local-file" file)))
@@ -385,23 +391,28 @@ PowerShell script when OPERATION is `run'."
        :sentinel #'winrm--process-sentinel))
     (display-buffer buffer)))
 
-(defun winrm-upload-file (server file &optional remote-path)
-  "Upload FILE to SERVER, optionally at REMOTE-PATH."
+(defun winrm-upload-file (server file &optional remote-path secure)
+  "Upload FILE to SERVER, optionally at REMOTE-PATH, using SECURE transport."
   (interactive (list (winrm--selected-server)
                      (read-file-name "PowerShell file: " nil nil t nil
                                      (lambda (path)
                                        (or (file-directory-p path)
-                                           (string-match-p "\\.ps1\\'" path))))))
-  (winrm--start 'upload server file remote-path))
+                                           (string-match-p "\\.ps1\\'" path))))
+                     nil
+                     winrm-selected-secure))
+  (winrm--start 'upload server file remote-path nil secure))
 
-(defun winrm-run-file (server file &optional remote-path arguments)
-  "Upload and run FILE on SERVER with optional REMOTE-PATH and ARGUMENTS."
+(defun winrm-run-file (server file &optional remote-path arguments secure)
+  "Upload and run FILE on SERVER with REMOTE-PATH, ARGUMENTS, and SECURE transport."
   (interactive (list (winrm--selected-server)
                      (read-file-name "PowerShell file: " nil nil t nil
                                      (lambda (path)
                                        (or (file-directory-p path)
-                                           (string-match-p "\\.ps1\\'" path))))))
-  (winrm--start 'run server file remote-path arguments))
+                                           (string-match-p "\\.ps1\\'" path))))
+                     nil
+                     nil
+                     winrm-selected-secure))
+  (winrm--start 'run server file remote-path arguments secure))
 
 (defun winrm--current-powershell-file ()
   "Return the current saved PowerShell file."
@@ -426,24 +437,30 @@ PowerShell script when OPERATION is `run'."
   "Upload the current PowerShell file to the selected WinRM server."
   (interactive)
   (winrm-upload-file (winrm--selected-server)
-                     (winrm--current-powershell-file)))
+                     (winrm--current-powershell-file)
+                     nil
+                     winrm-selected-secure))
 
 (defun winrm-run-current-file ()
   "Upload and run the current PowerShell file on the selected WinRM server."
   (interactive)
   (winrm-run-file (winrm--selected-server)
-                  (winrm--current-powershell-file)))
+                  (winrm--current-powershell-file)
+                  nil
+                  nil
+                  winrm-selected-secure))
 
-(defun winrm--open-cli (server)
-  "Open an interactive Evil-WinRM session for SERVER in iTerm."
+(defun winrm--open-cli (server &optional secure)
+  "Open an Evil-WinRM session for SERVER in iTerm, using HTTPS when SECURE."
   (let* ((host (winrm--server-value server :host "host"))
          (account (winrm--server-value server :account "account"))
          (evil-winrm (winrm--executable winrm-cli-program))
          (command (mapconcat
                    #'shell-quote-argument
                    (append (list evil-winrm "-i" host "-u" account
-                                 "-P" (number-to-string winrm-default-port))
-                           (when winrm-use-ssl (list "-S")))
+                                 "-P" (number-to-string
+                                       (if secure winrm-https-port winrm-http-port)))
+                           (when secure (list "-S")))
                    " "))
          (script (list "on run argv"
                        (format "tell application %s"
@@ -512,26 +529,35 @@ PowerShell script when OPERATION is `run'."
                                      (plist-get row :account))))
            (t (message "Unknown rdp path: %s" path)))))
 
-(defun ssh-servers--link-follow-winrm (path)
-  "Handle a winrm: link action at the current server table row."
+(defun ssh-servers--link-follow-winrm-transport (path secure)
+  "Handle a WinRM link PATH using SECURE transport at the current table row."
   (let ((row (ssh-servers--current-row)))
     (cond ((null row) (message "Not in a table row"))
           ((string= path "select")
-           (winrm--select-server row))
+           (winrm--select-server row secure))
           ((string= path "upload")
-           (winrm--select-server row)
+           (winrm--select-server row secure)
            (call-interactively #'winrm-upload-file))
           ((string= path "run")
-           (winrm--select-server row)
+           (winrm--select-server row secure)
            (call-interactively #'winrm-run-file))
           ((string= path "cli")
-           (winrm--select-server row)
-           (winrm--open-cli row))
+           (winrm--select-server row secure)
+           (winrm--open-cli row secure))
           (t (message "Unknown winrm path: %s" path)))))
+
+(defun ssh-servers--link-follow-winrm (path)
+  "Handle an unencrypted winrm: link action."
+  (ssh-servers--link-follow-winrm-transport path nil))
+
+(defun ssh-servers--link-follow-winrms (path)
+  "Handle an encrypted winrms: link action."
+  (ssh-servers--link-follow-winrm-transport path t))
 
 (org-link-set-parameters "ssh" :follow #'ssh-servers--link-follow)
 (org-link-set-parameters "rdp" :follow #'ssh-servers--link-follow-rdp)
 (org-link-set-parameters "winrm" :follow #'ssh-servers--link-follow-winrm)
+(org-link-set-parameters "winrms" :follow #'ssh-servers--link-follow-winrms)
 
 (with-eval-after-load 'powershell
   (define-key powershell-mode-map (kbd "C-c C-u") #'winrm-upload-current-file)
