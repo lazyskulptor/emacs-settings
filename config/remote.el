@@ -117,6 +117,21 @@
   :type 'string
   :group 'ssh-servers)
 
+(defcustom winrm-proxychains-program "proxychains4"
+  "Proxychains executable used to route Evil-WinRM through SOCKS5."
+  :type 'string
+  :group 'ssh-servers)
+
+(defcustom winrm-socks-proxy-host "127.0.0.1"
+  "SOCKS5 proxy host used for WinRM connections."
+  :type 'string
+  :group 'ssh-servers)
+
+(defcustom winrm-socks-proxy-port 1081
+  "SOCKS5 proxy port used for WinRM connections."
+  :type 'integer
+  :group 'ssh-servers)
+
 (defvar winrm-selected-server nil
   "Server plist selected for PowerShell buffer commands.")
 
@@ -345,6 +360,21 @@ Named function으로 정의해 `remote.el' 재평가 시 advice가 중복으로
                (if (zerop status) "completed" "failed")
                (string-trim event)))))
 
+(defun winrm--proxy-url ()
+  "Return the SOCKS5 proxy URL used by the Python WinRM bridge."
+  (format "socks5h://%s:%s" winrm-socks-proxy-host winrm-socks-proxy-port))
+
+(defun winrm--proxychains-config ()
+  "Write and return the proxychains config used by Evil-WinRM."
+  (let ((file (expand-file-name ".cache/proxychains-winrm.conf" my/emacs-dir)))
+    (make-directory (file-name-directory file) t)
+    (with-temp-file file
+      (insert "strict_chain\nquiet_mode\nproxy_dns\n"
+              "[ProxyList]\n"
+              (format "socks5 %s %s\n"
+                      winrm-socks-proxy-host winrm-socks-proxy-port)))
+    file))
+
 (defun winrm--start (operation server local-file &optional remote-path arguments secure)
   "Run WinRM OPERATION for SERVER and LOCAL-FILE.
 REMOTE-PATH overrides the generated destination.  ARGUMENTS are passed to the
@@ -365,6 +395,7 @@ PowerShell script when OPERATION is `run'.  SECURE uses HTTPS when non-nil."
                         (if (and secure winrm-validate-certificate)
                             "--cert-validation"
                           "--no-cert-validation")
+                        "--proxy" (winrm--proxy-url)
                         "--local-file" file)))
     (unless (file-readable-p script)
       (user-error "WinRM bridge not found: %s" script))
@@ -455,9 +486,12 @@ PowerShell script when OPERATION is `run'.  SECURE uses HTTPS when non-nil."
   (let* ((host (winrm--server-value server :host "host"))
          (account (winrm--server-value server :account "account"))
          (evil-winrm (winrm--executable winrm-cli-program))
+         (proxychains (winrm--executable winrm-proxychains-program))
+         (proxy-config (winrm--proxychains-config))
          (command (mapconcat
                    #'shell-quote-argument
-                   (append (list evil-winrm "-i" host "-u" account
+                   (append (list proxychains "-q" "-f" proxy-config
+                                 evil-winrm "-i" host "-u" account
                                  "-P" (number-to-string
                                        (if secure winrm-https-port winrm-http-port)))
                            (when secure (list "-S")))
