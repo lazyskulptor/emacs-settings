@@ -29,6 +29,8 @@ class WinRMClientTest(unittest.TestCase):
             "server.example.com",
             "--username",
             "Administrator",
+            "--proxy",
+            "socks5h://127.0.0.1:1081",
             "--local-file",
             str(self.script),
         ]
@@ -53,6 +55,7 @@ class WinRMClientTest(unittest.TestCase):
             ssl=True,
             auth="negotiate",
             cert_validation=True,
+            proxy="socks5h://127.0.0.1:1081",
         )
         client.copy.assert_called_once_with(
             str(self.script.resolve()), "C:\\Temp\\sample.ps1"

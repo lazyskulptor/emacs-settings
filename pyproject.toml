@@ -14,4 +14,5 @@ dependencies = [
     "six",
     "packaging",
     "pypsrp>=0.9.1",
+    "pysocks>=1.7.1",
 ]
