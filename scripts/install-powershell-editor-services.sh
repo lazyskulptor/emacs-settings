@@ -18,7 +18,20 @@ done
 mkdir -p "${CACHE_DIR}"
 TEMP_DIR="$(mktemp -d "${CACHE_DIR}/powershell-editor-services.XXXXXX")"
 BACKUP_DIR="${INSTALL_DIR}.previous"
-trap 'rm -rf "${TEMP_DIR}"' EXIT
+INSTALL_SUCCEEDED=0
+
+cleanup() {
+  rm -rf "${TEMP_DIR}"
+  if [[ -d "${BACKUP_DIR}" ]]; then
+    if [[ "${INSTALL_SUCCEEDED}" -eq 1 ]]; then
+      rm -rf "${BACKUP_DIR}"
+    else
+      rm -rf "${INSTALL_DIR}"
+      mv "${BACKUP_DIR}" "${INSTALL_DIR}"
+    fi
+  fi
+}
+trap cleanup EXIT
 
 curl --fail --location --silent --show-error \
   "${DOWNLOAD_URL}" \
@@ -37,6 +50,6 @@ if [[ -d "${INSTALL_DIR}" ]]; then
   mv "${INSTALL_DIR}" "${BACKUP_DIR}"
 fi
 mv "${TEMP_DIR}/release" "${INSTALL_DIR}"
-rm -rf "${BACKUP_DIR}"
+INSTALL_SUCCEEDED=1
 
 printf 'PowerShell Editor Services installed in %s\n' "${INSTALL_DIR}"
