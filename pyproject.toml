@@ -13,4 +13,5 @@ dependencies = [
     "grip",
     "six",
     "packaging",
+    "pypsrp>=0.9.1",
 ]
