@@ -76,6 +76,25 @@ cp ~/.emacs.d/properties.el ~/.emacs.d/properties.local.el
  dotnet-sdk-dir         "/usr/local/share/dotnet")
 ```
 
+## Configuration boot sequence
+
+`init.el`은 최소 부팅 파일로 유지하고, 실제 설정 모듈의 로드와 의존성 순서는
+`required-packages.el`에서 관리한다. 이 분리로 기본 `init.el` 변경을 설정 모듈의
+Git 이력과 분리할 수 있다.
+
+부팅 순서:
+
+1. `init.el`이 `required-packages.el`을 `load`한다.
+2. `required-packages.el`이 `properties.el`을 읽고 `config/`와 `config/ide/`를
+   `load-path`에 추가한다.
+3. 공통 유틸리티와 UI를 먼저 로드한 뒤, `remote.el`을 `(require 'remote)`로 로드한다.
+4. completion, Eshell, LSP 등 `remote.el` 이후 모듈을 순서대로 로드한다.
+
+`remote.el`은 `~/.emacs.d/config/remote.el`에 있으며 TRAMP, SSH, 원격 환경변수
+설정을 담당한다. 실행 중 로드 여부는 `M-: (featurep 'remote)`로 확인할 수 있다.
+`required-packages.el`을 다시 로드한 뒤의 `(require 'required-packages)`는 feature가
+이미 제공된 경우 no-op이므로, 중복 로드 오류를 의미하지 않는다.
+
 ## First Run
 
 ```sh
