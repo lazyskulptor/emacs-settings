@@ -17,6 +17,8 @@ lsp/
 network-security.data
 projectile-bookmarks.eld
 projectile.cache
+opencode-shell-locations.eld
+opencode-shell-session-directories.eld
 projects
 recentf
 transient/
