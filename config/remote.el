@@ -299,8 +299,8 @@ Named function으로 정의해 `remote.el' 재평가 시 advice가 중복으로
                          (format "/u:%s" account)
                          (format "/p:%s" password)
                          "/proxy:socks5://localhost:1081"
-                          "/dynamic-resolution"
-                          "+toggle-fullscreen"
+                          "/smart-sizing"
+                          "/size:1280x800"
                           "/clipboard")
           (message "Starting sdl-freerdp: %s@%s:%s" account host port))
       (message "Missing required fields or password for RDP connection"))))
