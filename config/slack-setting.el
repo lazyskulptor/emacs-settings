@@ -6,12 +6,13 @@
   (setq slack-buffer-emojify t) ;; if you want to enable emoji, default nil
   (setq slack-prefer-current-team t)
   :config
-  (slack-register-team
-   :name "Channer-name"
-   :default t
-   :token "my-token"
-   :cookie "my-cookie"
-   :full-and-display-names t)
+  (when (and slack-team-name slack-token slack-cookie)
+    (slack-register-team
+     :name slack-team-name
+     :default t
+     :token slack-token
+     :cookie slack-cookie
+     :full-and-display-names t))
 
   ;; (slack-register-team
   ;;  :name "test"

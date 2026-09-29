@@ -29,7 +29,6 @@ config/
 ├── org-table-align.el   # Org table alignment
 ├── slack-setting.el     # Slack client (token/cookie auth)
 ├── mcp-server-setting.el # MCP server configuration
-├── agent-shell-setting.el # Agent Shell integration
 ├── wiki-tools.el        # Wiki management (Org→MD archive, validation, AI formatting)
 ├── sql-connections.el   # SQL/JDBC connections (optional, gitignored)
 └── ide/
@@ -63,8 +62,18 @@ Each file ends with `(provide '<module-name>)` and is loaded via `(require ...)`
 | `clojure-lsp-path` | Clojure LSP binary path |
 | `global-flutter-sdk-dir` | Flutter SDK root (via FVM) |
 | `global-dart-sdk-dir` | Dart SDK root (via FVM) |
+| `dotnet-sdk-dir` | .NET SDK root |
+| `wiki-dir` / `wiki-archive-dir` | Wiki + archive directories |
+| `mail-accounts` / `mail-digest-senders` | Mail accounts / digest allowlist (sensitive) |
+| `slack-team-name` / `slack-token` / `slack-cookie` | Slack credentials (sensitive) |
+| `notmuch-site-lisp-dir` | Homebrew/system notmuch elisp path |
+| `ditaa-jar-path` / `ditaa-exec-path` | ditaa JAR/binary for Org babel |
+| `mcp-server-local-repo` | Fork dev-mode override for `emacs-mcp-server` |
+| `lsp-bridge-powershell-local-repo` | Fork dev-mode override for `lsp-bridge` PowerShell fork |
+| `saider-path` | Path to the `saider` (aider fork) binary |
 
-새 머신 설정: `properties.el` 상단 주석의 예시를 참고해 `properties.local.el`을 생성.
+새 머신 설정: `properties.local.el.example`을 `properties.local.el`로 복사한 뒤 값을 채운다
+(`properties.el`을 직접 복사하지 말 것 — self-load 코드 때문에 무한 재귀 로드로 이어짐).
 
 ## External Dependencies
 
@@ -201,6 +210,10 @@ curl -o monoid.zip https://cdn.jsdelivr.net/gh/larsenwork/monoid@2db2d289f4e6101
   6. commit → push → `straight-pull-package`로 최종 동기화
   - Fork repo 경로: `~/Workspace/contribute/<repo>/`
   - Straight repo 경로: `~/.emacs.d/straight/repos/<package>/`
+  - `config/mcp-server-setting.el`/`config/ide/lsp-bridge.el`은 `:local-repo`를 tracked 파일에
+    직접 적지 않고 `properties.local.el`의 `mcp-server-local-repo`/
+    `lsp-bridge-powershell-local-repo` 변수로 제어한다 — dev↔dist 전환 시 tracked 파일을
+    편집할 필요가 없다.
 
 ## MCP Server Configuration
 

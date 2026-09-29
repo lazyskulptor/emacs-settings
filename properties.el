@@ -69,12 +69,34 @@
   dotnet-sdk-dir         ""
   wiki-dir             "~/Workspace/wiki/"
   wiki-archive-dir     "~/Workspace/wiki/.archive/"
+  opencode-shell-local-path nil
+  ;; OpenCode profiles default to nil.  properties.local.el may set a list of
+  ;; plists; remote profiles use one TRAMP-home :directory, local profiles omit it.
+  opencode-shell-profiles nil
 
  ;; 메일 계정/다이제스트 — properties.local.el에서 실제 값 설정
  ;; mail-accounts: ((label "display-name" "addr") ...)
  ;; mail-digest-senders: 자동 요약할 발신자 이메일 주소 목록
  mail-accounts       nil
- mail-digest-senders nil)
+ mail-digest-senders nil
+
+ ;; notmuch elisp 경로 (Homebrew: /opt/homebrew/share/emacs/site-lisp/notmuch)
+ notmuch-site-lisp-dir nil
+
+ ;; Org ditaa 다이어그램 블록용 JAR/실행파일 경로
+ ditaa-jar-path  nil
+ ditaa-exec-path nil
+
+ ;; Fork 개발 모드 경로 — 설정 시 :local-repo 사용, nil이면 :branch(배포용) 사용
+ mcp-server-local-repo            nil
+
+ ;; aider(saider) 바이너리 경로
+ saider-path "~/.local/bin/saider"
+
+ ;; Slack 인증 정보 — properties.local.el에서만 실제 값 설정
+ slack-team-name nil
+ slack-token     nil
+ slack-cookie    nil)
 
 ;; Load machine-specific overrides (gitignored)
 (let ((local (expand-file-name "~/.emacs.d/properties.local.el")))

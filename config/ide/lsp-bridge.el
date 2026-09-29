@@ -33,13 +33,14 @@
   :straight (lsp-bridge
              :type git
              :host github
-             :repo "lazyskulptor/lsp-bridge"
-             :branch "fix/org-babel-virtual-file"
-             :local-repo "~/Workspace/contribute/lsp-bridge-powershell"
+             :repo "manateelazycat/lsp-bridge"
              :files (:defaults "acm" "*.py" "langserver")
              :build (:not native-compile))
   :init
   (setq lsp-bridge-enable-with-tramp t)  ; TRAMP 지원 활성화
+  ;; server->client 요청(window/showMessageRequest 등)이 응답 없이 묻히는 문제를
+  ;; 디버깅하기 위해 *lsp-bridge* 버퍼에 전체 JSON을 남긴다. (M-x my/dbg-toggle과 무관)
+  (setq lsp-bridge-log-level 'debug)
   (setq lsp-bridge-python-command (concat my/emacs-dir "/.venv/bin/python"))
   (setq lsp-bridge-user-langserver-dir (concat my/emacs-dir "/lsp-user-config"))
   ;; PowerShell Editor Services paths used by the upstream langserver config.

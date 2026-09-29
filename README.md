@@ -31,6 +31,18 @@
 
 ## Installation
 
+빠른 설치:
+```sh
+git clone https://github.com/lazyskulptor/emacs-settings.git ~/.emacs.d
+bash ~/.emacs.d/scripts/install.sh
+emacs
+```
+
+`scripts/install.sh`는 필수 도구(uv/node) 확인, `uv sync`/`npm install` 실행,
+`properties.local.el` 생성(템플릿: `properties.local.el.example`, 이미 존재하면 덮어쓰지
+않음)을 한 번에 수행한다. 설치 상태는 언제든 `bash ~/.emacs.d/scripts/doctor.sh`로 재점검할 수 있다.
+
+수동 설치 (동일한 단계):
 ```sh
 # 1. Clone
 git clone https://github.com/lazyskulptor/emacs-settings.git ~/.emacs.d
@@ -42,9 +54,18 @@ uv sync --directory ~/.emacs.d
 npm install --prefix ~/.emacs.d
 
 # 4. properties.local.el 생성
-cp ~/.emacs.d/properties.el ~/.emacs.d/properties.local.el
+cp ~/.emacs.d/properties.local.el.example ~/.emacs.d/properties.local.el
 # → machine-specific 값 (JDK, Flutter 등) 편집
 ```
+
+**주의**: `properties.el` 자체를 복사하지 말 것. `properties.el`은 끝부분에서
+`properties.local.el`을 `load`하는 코드를 포함하므로, 그 파일을 그대로 복사하면 사본이
+자기 자신을 무한 로드하다 스택 오버플로가 난다. 반드시 `properties.local.el.example`을
+복사할 것.
+
+언어별(Go/Java/Clojure/PowerShell 등) LSP 도구는 `install.sh`가 다루지 않는 optional
+의존성이다 — AGENTS.md의 "External Dependencies" 절과 아래 Optional 표를 참고해 필요한
+것만 설치한다.
 
 ## `properties.local.el` 설정
 
@@ -62,10 +83,16 @@ cp ~/.emacs.d/properties.el ~/.emacs.d/properties.local.el
 | `dotnet-sdk-dir` | 아니오 | .NET SDK 경로 |
 | `wiki-dir` | 아니오 | Wiki 디렉토리 |
 | `wiki-archive-dir` | 아니오 | Wiki 아카이브 디렉토리 |
+| `notmuch-site-lisp-dir` | 아니오 | notmuch elisp 경로 (Homebrew 등) |
+| `ditaa-jar-path` / `ditaa-exec-path` | 아니오 | Org ditaa 블록용 JAR/실행파일 |
+| `mcp-server-local-repo` | 아니오 | emacs-mcp-server fork 개발 모드 경로 |
+| `lsp-bridge-powershell-local-repo` | 아니오 | lsp-bridge fork 개발 모드 경로 |
+| `saider-path` | 아니오 | aider(saider) 바이너리 경로 (기본값 `~/.local/bin/saider`) |
+| `slack-team-name` / `slack-token` / `slack-cookie` | 아니오 | Slack 인증 정보 |
 
 \* Clojure를 사용하지 않으면 생략 가능.
 
-예시:
+예시 (`properties.local.el.example` 참고):
 ```elisp
 (setq
  clojure-lsp-path    "/opt/homebrew/bin/clojure-lsp"
@@ -73,7 +100,13 @@ cp ~/.emacs.d/properties.el ~/.emacs.d/properties.local.el
  java-home-21        "/Library/Java/JavaVirtualMachines/jdk-21.0.3+9/Contents/Home"
  global-flutter-sdk-dir "/Users/hyeonjunpark/fvm/default"
  global-dart-sdk-dir    "/Users/hyeonjunpark/fvm/default/bin/cache/dart-sdk"
- dotnet-sdk-dir         "/usr/local/share/dotnet")
+ dotnet-sdk-dir         "/usr/local/share/dotnet"
+ notmuch-site-lisp-dir  "/opt/homebrew/share/emacs/site-lisp/notmuch"
+ ditaa-jar-path         "/opt/homebrew/Cellar/ditaa/0.11.0_1/libexec/ditaa-0.11.0-standalone.jar"
+ ditaa-exec-path        "/opt/homebrew/bin/ditaa"
+ slack-team-name        "my-team"
+ slack-token            "xoxs-..."
+ slack-cookie           "...")
 ```
 
 ## Configuration boot sequence
@@ -116,21 +149,24 @@ npm install --save-dev typescript typescript-language-server eslint
 
 ## Update
 
+Emacs 실행 중 idle 10초 후, 하루 1회 자동으로 저장소 git 상태만 확인한다(non-blocking
+background `git fetch`). 뒤처져 있으면 echo area에 알림이 뜬다 — 적용은 항상 수동이다:
+
+```
+M-x my/emacs-update
+```
+
+`my/emacs-update`는 `scripts/update.sh`(git pull + `uv sync --upgrade` + `npm update`)를
+실행한 뒤 `straight-pull-all`로 Emacs 패키지까지 업데이트한다. 터미널에서 repo/uv/npm 부분만
+따로 실행하려면:
+
 ```sh
-# 저장소 업데이트
-git -C ~/.emacs.d pull
-
-# Python 의존성 업데이트
-uv sync --directory ~/.emacs.d --upgrade
-
-# Node 의존성 업데이트
-npm update --prefix ~/.emacs.d
-
-# Emacs 패키지 업데이트
-# M-x straight-pull-all 후 Emacs 재시작
+bash ~/.emacs.d/scripts/update.sh
 ```
 
 ## Troubleshooting
+
+먼저 `bash ~/.emacs.d/scripts/doctor.sh`로 필수 도구/설치 상태를 한 번에 점검한다.
 
 ### lsp-bridge가 LSP 서버를 찾지 못함
 LSP 서버 바이너리가 `~/.emacs.d/node_modules/.bin/`에 있는지 확인:

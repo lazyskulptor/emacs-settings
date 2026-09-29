@@ -6,7 +6,7 @@
 (use-package aider
   :straight (:host github :repo "tninja/aider.el")
   :config
-  (setq aider-program (expand-file-name "~/.local/bin/saider"))
+  (setq aider-program (expand-file-name saider-path))
 
   ;; 히스토리 파일 지정하여 Aider 실행 함수
   (defun my/aider-run-with-history-file (history-file)

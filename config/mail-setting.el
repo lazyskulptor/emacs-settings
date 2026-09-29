@@ -10,13 +10,15 @@
 
 ;; ── notmuch ────────────────────────────────────────────────────
 ;; brew 설치분(notmuch elisp) 사용 — straight 중복 설치 방지
+;; 경로는 properties.local.el 의 notmuch-site-lisp-dir 참조
 (use-package notmuch
   :straight nil
-  :load-path "/opt/homebrew/share/emacs/site-lisp/notmuch"
+  :load-path notmuch-site-lisp-dir
   :defer t
   :init
   ;; brew elisp의 autoload 파일을 명시적으로 로드 (use-package :load-path는 autoloads를 처리하지 않음)
-  (load "/opt/homebrew/share/emacs/site-lisp/notmuch/notmuch-autoloads" 'noerror 'nomessage)
+  (when notmuch-site-lisp-dir
+    (load (expand-file-name "notmuch-autoloads" notmuch-site-lisp-dir) 'noerror 'nomessage))
   :custom
   (notmuch-search-oldest-first nil)
   (notmuch-show-logo nil)
@@ -86,9 +88,9 @@
 (defun my/email-digest-open-report ()
   "당일 이메일 다이제스트 보고서를 org 로 연다."
   (interactive)
-  (let* ((file (expand-file-name (format "~/Workspace/wiki/roam/newroom/email-digest-%s.org"
-                                                    (format-time-string "%Y-%m-%d"))))
-         (wiki-dir (expand-file-name "~/Workspace/wiki/")))
+  (let ((file (expand-file-name
+               (format "roam/newroom/email-digest-%s.org" (format-time-string "%Y-%m-%d"))
+               wiki-dir)))
     (unless (string-prefix-p (expand-file-name wiki-dir) (expand-file-name file))
       (user-error "Report must be inside wiki directory"))
     (if (file-exists-p file)
@@ -98,7 +100,7 @@
 (defun my/email-digest-run (&optional dry-run)
   "wiki email_digest.py 스크립트 실행 (allowlist 발신자만 요약)."
   (interactive "P")
-  (let* ((script "~/Workspace/wiki/scripts/bin/email_digest.py")
+  (let* ((script (expand-file-name "scripts/bin/email_digest.py" wiki-dir))
          (senders (mapconcat (lambda (s) (format "--sender %s" s))
                              mail-digest-senders " "))
          (dry (if dry-run "--dry-run" "")))

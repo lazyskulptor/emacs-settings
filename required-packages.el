@@ -96,6 +96,9 @@
 ;; 19. MCP 서버 호출 로깅
 (require 'mcp-server-trace)
 
+;; 20. 자체 업데이트 체크 (repo git 상태 자동 확인 + 수동 전체 sweep)
+(require 'self-update)
+
 ;;  end of file
 (provide 'required-packages)
 ;;; required-packages.el ends here

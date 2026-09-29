@@ -9,7 +9,7 @@
    (setq org-todo-keywords '((type "TODO" "|" "DONE" "PASSED" "HOLD")))
   (setq org-latex-pdf-process
         (list "latexmk -pdflatex='%latex -shell-escape -interaction nonstopmode' -pdf -output-directory=%o %f"))
-  (setq org-directory (file-truename "~/Workspace/wiki/"))
+  (setq org-directory (file-truename wiki-dir))
   (setq org-default-notes-file (expand-file-name "inbox.org" org-directory))
   (org-babel-do-load-languages
    'org-babel-load-languages
@@ -21,8 +21,8 @@
        (plantuml . t)))
     (setq org-babel-python-command "uv run python")
     (setq org-babel-clojure-backend 'babashka)
-   (setq org-ditaa-jar-path "/opt/homebrew/Cellar/ditaa/0.11.0_1/libexec/ditaa-0.11.0-standalone.jar")
-   (setq org-ditaa-exec "/opt/homebrew/bin/ditaa")
+   (when ditaa-jar-path (setq org-ditaa-jar-path ditaa-jar-path))
+   (when ditaa-exec-path (setq org-ditaa-exec ditaa-exec-path))
    (setq org-ditaa-default-exec-mode 'ditaa))
 
 (use-package org-pomodoro :ensure t
@@ -31,8 +31,8 @@
 (use-package org-roam :ensure t
   :init (setq org-roam-v2-ack t)
   :custom
-  (org-roam-directory (file-truename "~/Workspace/wiki/"))
-  (org-roam-file-exclude-regexp '("^\\(?:agent-shell\\|spiritual\\|study\\|scripts\\|projects\\|\\.\\(?:git\\|archive\\|graph\\)\\)/"))
+  (org-roam-directory (file-truename wiki-dir))
+  (org-roam-file-exclude-regexp '("^\\(?:spiritual\\|study\\|scripts\\|projects\\|\\.\\(?:git\\|archive\\|graph\\)\\)/"))
   (org-roam-dailies-directory "daily/")
   (org-roam-completion-everywhere t)
   (org-roam-graph-viewer "open")
@@ -55,7 +55,7 @@
                    :if-new (file+head "%<%Y-%m-%d>.org"
                                       "#+title: %<%Y-%m-%d>\n#+roam_key: %<%Y-%m-%d>\n\n* Log\n")))))
 
-(setq org-archive-location "~/Workspace/wiki-archive/%s_archive::")
+(setq org-archive-location (concat wiki-archive-dir "%s_archive::"))
 (setq org-log-done 'time)
 
 (require 'org-id)

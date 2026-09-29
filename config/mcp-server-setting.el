@@ -339,10 +339,11 @@ Claude Code에서 emacs MCP 서버에 연결하려면 socat이 필요합니다.
 ;;; ── Package + server configuration ──────────────────────────────────
 
 (use-package mcp-server
-  :straight (mcp-server :type git :host github :repo "rhblind/emacs-mcp-server"
-                        :files (:defaults "tools/*.el")
-                        :local-repo "/Users/hyeonjunpark/Workspace/contribute/emacs-mcp-server")
-  :vc (:url "https://github.com/rhblind/emacs-mcp-server" :rev :newest)
+  :straight `(mcp-server :type git :host github :repo "rhblind/emacs-mcp-server"
+                         :files (:defaults "tools/*.el")
+                         ,@(if mcp-server-local-repo
+                               (list :local-repo mcp-server-local-repo)
+                             (list :branch "main")))
   :config
   ;; Socket lives inside ~/.emacs.d/.local/cache/
   (make-directory (expand-file-name ".local/cache/" user-emacs-directory) t)
@@ -350,8 +351,10 @@ Claude Code에서 emacs MCP 서버에 연결하려면 socat이 필요합니다.
         (expand-file-name ".local/cache/" user-emacs-directory))
 
   ;; Dangerous operations are blocked without prompting.
-  ;; agent-shell permission UI가 1차 필터 역할을 하므로
+  ;; opencode-shell(opencode CLI) 쪽 permission UI가 1차 필터 역할을 하므로
   ;; MCP 보안 레이어의 minibuffer 프롬프트는 비활성화 (이중 프롬프트 방지)
+  ;; NOTE: agent-shell은 폐기됨 — opencode-shell 경유가 아닌 다른 MCP 클라이언트를
+  ;; 새로 연결할 경우 이 가정이 깨지므로 재검토할 것.
   (setq mcp-server-security-prompt-for-permissions nil)
 
   ;; Block access to credentials / secrets

@@ -513,12 +513,11 @@ Returns the path to graph.json, or nil on failure."
          (files-data (make-hash-table :test 'equal))
          ;; Collect all org files under wiki
          (all-org-files (directory-files-recursively wiki-root "\\.org$" t))
-         ;; Exclude .git, .graph, .archive, agent-shell/transcripts
+         ;; Exclude .git, .graph, .archive
          (org-files (seq-filter
                      (lambda (f)
                        (let ((rel (file-relative-name f wiki-root)))
-                         (not (or (string-match-p "^\\.\\(git\\|graph\\|archive\\)/" rel)
-                                  (string-match-p "^agent-shell/transcripts/" rel)))))
+                         (not (string-match-p "^\\.\\(git\\|graph\\|archive\\)/" rel))))
                      all-org-files))
          ;; Collect .archive/*.md files
          (md-files (directory-files-recursively
