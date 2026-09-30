@@ -30,17 +30,53 @@ sudo pacman -S emacs
 **Windows**
 - [gnu.org](https://www.gnu.org/software/emacs/download.html) 또는 [chocolatey](https://chocolatey.org/packages/emacs)
 
-### 2️⃣ 이 저장소 설치 (자동)
+### 2️⃣ 이 저장소 설치 (두 가지 방식)
+
+#### 방식 A: Release 다운로드 (권장) 🎯
+
+**웹에서 다운로드:**
+1. https://github.com/lazyskulptor/emacs-settings/releases
+2. 최신 Release (v1.0.1 이상) 클릭
+3. "Assets" 섹션에서 `Source code (tar.gz)` 또는 `.zip` 다운로드
+4. 압축 해제 후 `~/.emacs.d`로 이동
 
 ```bash
 # 기존 ~/.emacs.d가 있다면 백업
 [ -d ~/.emacs.d ] && mv ~/.emacs.d ~/.emacs.d.bak
 
-# 클론 + 설치 (~/README.md 참고)
+# 다운로드한 파일 압축 해제
+cd ~
+tar xzf emacs-settings-v1.0.1.tar.gz
+mv emacs-settings-v1.0.1 .emacs.d
+```
+
+**또는 CLI로:**
+```bash
+# 기존 ~/.emacs.d가 있다면 백업
+[ -d ~/.emacs.d ] && mv ~/.emacs.d ~/.emacs.d.bak
+
+# Release 다운로드
+cd ~
+wget https://github.com/lazyskulptor/emacs-settings/archive/refs/tags/v1.0.1.tar.gz
+tar xzf v1.0.1.tar.gz
+mv emacs-settings-v1.0.1 .emacs.d
+```
+
+#### 방식 B: Git Clone
+
+```bash
+# 기존 ~/.emacs.d가 있다면 백업
+[ -d ~/.emacs.d ] && mv ~/.emacs.d ~/.emacs.d.bak
+
+# Clone + 설치
 git clone https://github.com/lazyskulptor/emacs-settings.git ~/.emacs.d
 bash ~/.emacs.d/scripts/install.sh
+```
 
-# 확인
+**두 방식 모두 동일합니다** — Release 다운로드가 네트워크 부담이 적습니다.
+
+설치 확인:
+```bash
 bash ~/.emacs.d/scripts/doctor.sh
 ```
 
