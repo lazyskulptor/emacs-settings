@@ -63,6 +63,53 @@ cp ~/.emacs.d/properties.local.el.example ~/.emacs.d/properties.local.el
 자기 자신을 무한 로드하다 스택 오버플로가 난다. 반드시 `properties.local.el.example`을
 복사할 것.
 
+## direnv (선택사항)
+
+Clojure/Maven 프로젝트의 GitHub Packages 인증에 필요한 환경변수(`GITHUB_ACTOR`, `GITHUB_TOKEN`)를
+프로젝트별로 자동 관리하려면 **direnv** 설치:
+
+```sh
+# macOS (Homebrew)
+brew install direnv
+
+# Linux (APT)
+sudo apt-get install direnv
+
+# Linux (Fedora/RHEL)
+sudo yum install direnv
+
+# Linux (Arch)
+sudo pacman -S direnv
+```
+
+설치 후 shell hook 등록 (`.bashrc` / `.zshrc` / `~/.config/fish/config.fish` 등):
+
+```bash
+# For Bash
+eval "$(direnv hook bash)" >> ~/.bashrc
+
+# For Zsh
+eval "$(direnv hook zsh)" >> ~/.zshrc
+```
+
+프로젝트 폴더에 `.envrc` 파일을 추가 (예: `translator/`):
+
+```bash
+# translator/.envrc
+export GITHUB_ACTOR=<your-github-username>
+export GITHUB_TOKEN=<your-personal-access-token>
+```
+
+`.envrc` 승인:
+
+```bash
+cd translator/
+direnv allow
+```
+
+이제 `cd translator` 할 때마다 자동으로 환경변수가 설정되어, `lein` / `clojure` 명령어가
+GitHub Packages 저장소에 접근할 수 있다.
+
 언어별(Go/Java/Clojure/PowerShell 등) LSP 도구는 `install.sh`가 다루지 않는 optional
 의존성이다 — AGENTS.md의 "External Dependencies" 절과 아래 Optional 표를 참고해 필요한
 것만 설치한다.
@@ -149,19 +196,40 @@ npm install --save-dev typescript typescript-language-server eslint
 
 ## Update
 
-Emacs 실행 중 idle 10초 후, 하루 1회 자동으로 저장소 git 상태만 확인한다(non-blocking
-background `git fetch`). 뒤처져 있으면 echo area에 알림이 뜬다 — 적용은 항상 수동이다:
+### 자동 체크 (Background)
+
+Emacs 시작 후 idle 10초가 지나면, 하루 1회 자동으로 저장소 git 상태만 확인한다
+(`make-process`로 비동기 background fetch — Emacs를 블로킹하지 않음). 뒤처져 있으면
+echo area에 알림이 뜬다:
+
+```
+[Emacs] Config: 5 commits behind origin/main. Run M-x my/emacs-update to pull.
+```
+
+### 수동 업데이트
+
+항상 수동으로 적용:
 
 ```
 M-x my/emacs-update
 ```
 
-`my/emacs-update`는 `scripts/update.sh`(git pull + `uv sync --upgrade` + `npm update`)를
-실행한 뒤 `straight-pull-all`로 Emacs 패키지까지 업데이트한다. 터미널에서 repo/uv/npm 부분만
-따로 실행하려면:
+이 커맨드는:
+1. `scripts/update.sh` 실행 (git pull + `uv sync --upgrade` + `npm update`)
+2. `straight-pull-all`로 모든 Emacs 패키지 업데이트
+3. 결과를 `*emacs-update*` 버퍼에 표시
+
+터미널에서 저장소/의존성 부분만 따로 업데이트:
 
 ```sh
 bash ~/.emacs.d/scripts/update.sh
+```
+
+자동 체크 간격 변경 (`properties.local.el`):
+
+```elisp
+;; 기본값: 86400 (24시간), 0으로 설정하면 비활성화
+(setq my/update-check-interval 86400)
 ```
 
 ## Troubleshooting
@@ -195,4 +263,43 @@ emacs --debug-init       # 백트레이스 확인
 `straight/` 디렉토리 삭제 후 재시작:
 ```sh
 rm -rf ~/.emacs.d/straight
+```
+
+### direnv 설정 관련
+
+direnv가 설치되었으나 환경변수가 로드되지 않는 경우:
+
+```sh
+# Shell hook이 등록되었는지 확인
+grep "direnv hook" ~/.bashrc   # 또는 ~/.zshrc / ~/.config/fish/config.fish
+
+# 등록되지 않았으면
+eval "$(direnv hook bash)" >> ~/.bashrc
+source ~/.bashrc
+
+# 또는 현재 셸에서 임시로 hook 활성화
+eval "$(direnv hook bash)"
+```
+
+`.envrc` 파일이 있는데도 변수가 로드되지 않는 경우:
+
+```sh
+# .envrc 승인
+cd <project-dir>
+direnv allow
+
+# 상태 확인
+direnv status
+```
+
+direnv를 제거하려면:
+
+```sh
+brew uninstall direnv       # macOS
+# 또는
+sudo apt-get remove direnv  # Linux (APT)
+sudo yum remove direnv      # Linux (Fedora/RHEL)
+
+# Shell hook도 제거 (.bashrc / .zshrc 등에서)
+eval "$(direnv hook bash)" 라인 삭제
 ```

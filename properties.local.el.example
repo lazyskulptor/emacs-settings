@@ -1,0 +1,90 @@
+;; Machine-specific configuration — copy to ~/.emacs.d/properties.local.el
+;; and fill in values for your environment. This file is gitignored.
+;;
+;; Optional: leave values as nil or "" to skip features (e.g., mail, Slack).
+
+(setq
+ ;; ─────────────────────────────────────────────────────────────
+ ;; Language servers and toolchains
+ ;; ─────────────────────────────────────────────────────────────
+
+ ;; Clojure LSP (Homebrew: /opt/homebrew/Cellar/clojure-lsp-native/<version>/bin/clojure-lsp)
+ clojure-lsp-path    ""
+
+ ;; Java Lombok JAR (JDT.LS javaagent용)
+ java-lombok-path    ""
+
+ ;; JDK paths by version
+ java-home-21        ""
+ java-home-17        ""
+ java-home-11        ""
+
+ ;; Flutter/Dart SDK (FVM: /Users/<user>/fvm/default)
+ global-flutter-sdk-dir ""
+ global-dart-sdk-dir    ""
+
+ ;; .NET SDK (dotnet --list-sdks 로 확인)
+ dotnet-sdk-dir      ""
+
+ ;; ─────────────────────────────────────────────────────────────
+ ;; Documentation and Wiki
+ ;; ─────────────────────────────────────────────────────────────
+
+ ;; Org directory, roam/, journal.org 위치
+ wiki-dir            "~/Workspace/wiki/"
+ wiki-archive-dir    "~/Workspace/wiki/.archive/"
+
+ ;; ─────────────────────────────────────────────────────────────
+ ;; Optional tools
+ ;; ─────────────────────────────────────────────────────────────
+
+ ;; notmuch elisp 경로 (Homebrew: /opt/homebrew/share/emacs/site-lisp/notmuch)
+ notmuch-site-lisp-dir nil
+
+ ;; Org ditaa 블록용 JAR/실행파일 경로
+ ditaa-jar-path  nil
+ ditaa-exec-path nil
+
+ ;; aider(saider) 바이너리 경로
+ saider-path "~/.local/bin/saider"
+
+ ;; ─────────────────────────────────────────────────────────────
+ ;; Fork development mode (use :local-repo in straight.el specs)
+ ;; ─────────────────────────────────────────────────────────────
+
+ ;; emacs-mcp-server fork 개발 경로
+ mcp-server-local-repo nil
+
+ ;; lsp-bridge fork 개발 경로
+ lsp-bridge-powershell-local-repo nil
+
+ ;; ─────────────────────────────────────────────────────────────
+ ;; OpenCode shell (optional)
+ ;; ─────────────────────────────────────────────────────────────
+
+ ;; Local OpenCode profiles directory (if developing locally)
+ opencode-shell-local-path nil
+
+ ;; OpenCode profiles: list of plist (:name "..." :directory "..." :user "..." ...)
+ ;; Used for remote shell integration; leave as nil to skip.
+ opencode-shell-profiles nil
+
+ ;; ─────────────────────────────────────────────────────────────
+ ;; Mail (notmuch + mu4e integration)
+ ;; ─────────────────────────────────────────────────────────────
+
+ ;; Mail accounts: ((label "Display Name" "email@example.com") ...)
+ ;; Leave as nil to disable mail features.
+ mail-accounts nil
+
+ ;; Senders whose emails should auto-summarize in mail digest
+ mail-digest-senders nil
+
+ ;; ─────────────────────────────────────────────────────────────
+ ;; Slack
+ ;; ─────────────────────────────────────────────────────────────
+
+ ;; Slack team name, token, cookie — leave as nil to skip Slack integration
+ slack-team-name nil
+ slack-token     nil
+ slack-cookie    nil)

@@ -1,0 +1,7 @@
+# direnv configuration for GitHub Packages authentication
+# Copy this to .envrc and replace with your actual credentials:
+#   cp .envrc.example .envrc
+#   direnv allow
+
+export GITHUB_ACTOR=<your-github-username>
+export GITHUB_TOKEN=<your-personal-access-token>
