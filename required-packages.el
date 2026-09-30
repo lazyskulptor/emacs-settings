@@ -43,6 +43,7 @@
 
 ;; 3. TRAMP + SSH + 원격 환경변수
 (require 'remote)
+(require 'self-update)
 
 ;; 4. Completion UI (vertico, corfu, consult)
 (require 'completion)
@@ -78,26 +79,17 @@
 ;; 14. Markdown (문법 강조 + 브라우저 미리보기)
 (require 'markdown-setting)
 
-;; 15. Slack
-(require 'slack-setting)
-
-;; 16. OpenCode Shell
+;; 15. OpenCode Shell
 (require 'opencode-shell-setting)
 
-;; 16.1. Aider Integration
-(require 'aider-setting)
-
-;; 17. Wiki 도구 (mcp-server가 의존)
+;; 16. Wiki 도구 (mcp-server가 의존)
 (require 'wiki-tools)
 
-;; 18. MCP 서버
+;; 17. MCP 서버
 (require 'mcp-server-setting)
 
-;; 19. MCP 서버 호출 로깅
+;; 18. MCP 서버 호출 로깅
 (require 'mcp-server-trace)
-
-;; 20. 자체 업데이트 체크 (repo git 상태 자동 확인 + 수동 전체 sweep)
-(require 'self-update)
 
 ;;  end of file
 (provide 'required-packages)

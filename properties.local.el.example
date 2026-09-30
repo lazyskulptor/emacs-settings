@@ -45,18 +45,12 @@
  ditaa-jar-path  nil
  ditaa-exec-path nil
 
- ;; aider(saider) 바이너리 경로
- saider-path "~/.local/bin/saider"
-
  ;; ─────────────────────────────────────────────────────────────
  ;; Fork development mode (use :local-repo in straight.el specs)
  ;; ─────────────────────────────────────────────────────────────
 
  ;; emacs-mcp-server fork 개발 경로
  mcp-server-local-repo nil
-
- ;; lsp-bridge fork 개발 경로
- lsp-bridge-powershell-local-repo nil
 
  ;; ─────────────────────────────────────────────────────────────
  ;; OpenCode shell (optional)
@@ -78,13 +72,4 @@
  mail-accounts nil
 
  ;; Senders whose emails should auto-summarize in mail digest
- mail-digest-senders nil
-
- ;; ─────────────────────────────────────────────────────────────
- ;; Slack
- ;; ─────────────────────────────────────────────────────────────
-
- ;; Slack team name, token, cookie — leave as nil to skip Slack integration
- slack-team-name nil
- slack-token     nil
- slack-cookie    nil)
+ mail-digest-senders nil)

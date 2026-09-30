@@ -89,14 +89,7 @@
 
  ;; Fork 개발 모드 경로 — 설정 시 :local-repo 사용, nil이면 :branch(배포용) 사용
  mcp-server-local-repo            nil
-
- ;; aider(saider) 바이너리 경로
- saider-path "~/.local/bin/saider"
-
- ;; Slack 인증 정보 — properties.local.el에서만 실제 값 설정
- slack-team-name nil
- slack-token     nil
- slack-cookie    nil)
+ lsp-bridge-powershell-local-repo nil)
 
 ;; Load machine-specific overrides (gitignored)
 (let ((local (expand-file-name "~/.emacs.d/properties.local.el")))
