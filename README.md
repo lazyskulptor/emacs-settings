@@ -1,8 +1,104 @@
 # emacs-settings
 
-개인 Emacs 설정 저장소. `straight.el`로 패키지를 관리하고, `uv` + `npm`으로 외부 LSP 도구 의존성을 `.emacs.d` 내에 설치한다.
+완전하게 패키징된 Emacs 설정 저장소입니다. `straight.el`로 패키지를 관리하고, `uv` + `npm`으로 외부 LSP 도구 의존성을 `.emacs.d` 내에 설치합니다.
 
-## Prerequisites
+🚀 **5분 안에 설치 가능** — 필수 도구 자동 확인, 의존성 자동 설치, 설정 템플릿 제공
+
+---
+
+## 🎯 Quick Start (3단계)
+
+### 1️⃣ Emacs 설치 (필수, 한 번만)
+
+**macOS** (Homebrew 권장)
+```bash
+brew install --cask emacs
+```
+
+**Linux**
+```bash
+# Ubuntu/Debian
+sudo apt-get install emacs
+
+# Fedora
+sudo dnf install emacs
+
+# Arch
+sudo pacman -S emacs
+```
+
+**Windows**
+- [gnu.org](https://www.gnu.org/software/emacs/download.html) 또는 [chocolatey](https://chocolatey.org/packages/emacs)
+
+### 2️⃣ 이 저장소 설치 (자동)
+
+```bash
+# 기존 ~/.emacs.d가 있다면 백업
+[ -d ~/.emacs.d ] && mv ~/.emacs.d ~/.emacs.d.bak
+
+# 클론 + 설치 (~/README.md 참고)
+git clone https://github.com/lazyskulptor/emacs-settings.git ~/.emacs.d
+bash ~/.emacs.d/scripts/install.sh
+
+# 확인
+bash ~/.emacs.d/scripts/doctor.sh
+```
+
+**install.sh 자동 수행:**
+- ✓ 필수 도구 확인 (git, emacs, uv, node, npm, direnv)
+- ✓ Python venv 생성 (`uv sync`)
+- ✓ npm 의존성 설치 (`npm install`)
+- ✓ `properties.local.el` 템플릿 생성
+- ✓ direnv 설치 (선택, macOS/Linux)
+
+### 3️⃣ 설정 (필수, 2~5분)
+
+Emacs 실행 **전에** `properties.local.el` 편집:
+
+```bash
+nano ~/.emacs.d/properties.local.el
+```
+
+아래 항목을 실제 환경에 맞게 수정:
+
+```elisp
+(setq
+ ;; JDK 경로 (Java 개발 시)
+ java-home-21 "/Library/Java/JavaVirtualMachines/jdk-21.x.x/Contents/Home"
+ 
+ ;; Wiki 저장소 경로 (Org-mode 관리 시)
+ wiki-dir "~/Workspace/wiki/"
+ wiki-archive-dir "~/Workspace/wiki/.archive/"
+ 
+ ;; (선택) 언어별 SDK
+ global-flutter-sdk-dir nil  ;; FVM 사용 시: "~/fvm/default"
+ global-dart-sdk-dir nil
+ dotnet-sdk-dir nil
+ 
+ ;; (선택) 이메일
+ mail-accounts nil  ;; ((label "Display Name" "email@example.com") ...)
+ mail-digest-senders nil
+ 
+ ;; (선택) Notmuch (macOS Homebrew: /opt/homebrew/share/emacs/site-lisp/notmuch)
+ notmuch-site-lisp-dir nil)
+```
+
+필수는 아닙니다 — 편집하지 않으면 기본값으로 실행됩니다.
+
+### 4️⃣ Emacs 실행 (첫 실행은 5~10분 소요)
+
+```bash
+emacs
+```
+
+**첫 실행 시 자동으로 진행되는 작업:**
+- straight.el 부트스트랩 (패키지 설치) — 5~10분
+- LSP 서버 다운로드 (언어 사용 시) — 1~5분
+- 기타 캐시 생성 — 자동
+
+---
+
+## Prerequisites (자동 확인됨)
 
 ### Required
 
