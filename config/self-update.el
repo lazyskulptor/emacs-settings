@@ -46,6 +46,15 @@ Set to 0 to disable auto-check; use M-x my/emacs-update to update manually."
     (format "git -C %s rev-parse --abbrev-ref HEAD 2>/dev/null"
             (shell-quote-argument my/emacs-dir)))))
 
+(defun my/update--latest-tag ()
+  "Return latest Release tag (e.g., v1.0.1), or nil if none exists."
+  (let ((result (string-trim
+                 (shell-command-to-string
+                  (format "git -C %s describe --tags --abbrev=0 2>/dev/null"
+                          (shell-quote-argument my/emacs-dir))))))
+    (unless (string-empty-p result)
+      result)))
+
 (defun my/update--behind-count (branch)
   "Return number of commits behind origin/BRANCH."
   (let ((result (shell-command-to-string
@@ -54,6 +63,17 @@ Set to 0 to disable auto-check; use M-x my/emacs-update to update manually."
                          (shell-quote-argument branch)))))
     (if (string-match "^[0-9]+$" (string-trim result))
         (string-to-number (string-trim result))
+      0)))
+
+(defun my/update--commits-since-tag (tag)
+  "Return number of commits since TAG (e.g., v1.0.1)."
+  (let ((result (string-trim
+                 (shell-command-to-string
+                  (format "git -C %s rev-list --count %s..HEAD 2>/dev/null"
+                          (shell-quote-argument my/emacs-dir)
+                          (shell-quote-argument tag))))))
+    (if (string-match "^[0-9]+$" result)
+        (string-to-number result)
       0)))
 
 (defun my/update--fetch-async ()
@@ -65,12 +85,24 @@ Set to 0 to disable auto-check; use M-x my/emacs-update to update manually."
                   :sentinel (lambda (proc _event)
                               (when (eq (process-status proc) 'exit)
                                 (let* ((branch (my/update--current-branch))
-                                       (behind (my/update--behind-count branch)))
+                                       (behind-branch (my/update--behind-count branch))
+                                       (latest-tag (my/update--latest-tag))
+                                       (since-tag (and latest-tag (my/update--commits-since-tag latest-tag)))
+                                       (msg (cond
+                                             ((> behind-branch 0)
+                                              (format "[Emacs] Config: %d commits behind origin/%s%s. Run M-x my/emacs-update to pull."
+                                                      behind-branch branch
+                                                      (if (and latest-tag (> since-tag 0))
+                                                          (format " (Release: %s, %d commits after)" latest-tag since-tag)
+                                                        "")))
+                                             ((and latest-tag (> since-tag 0))
+                                              (format "[Emacs] Config: %d commits after Release %s. Development version active."
+                                                      since-tag latest-tag))
+                                             (t
+                                              (format "[Emacs] Config: up to date%s"
+                                                      (if latest-tag (format " (Release %s)" latest-tag) ""))))))
                                   (my/update--save-check-time)
-                                  (if (> behind 0)
-                                      (message "[Emacs] Config: %d commits behind origin/%s. Run M-x my/emacs-update to pull."
-                                               behind branch)
-                                    (message "[Emacs] Config: up to date"))))))))
+                                  (message "%s" msg)))))))
     process))
 
 (defun my/emacs-update ()
