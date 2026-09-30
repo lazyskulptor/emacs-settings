@@ -151,6 +151,46 @@ ensure_properties_local() {
   return 0
 }
 
+ensure_init_el() {
+  local emacs_dir="${1:-.}"
+  local target="$emacs_dir/init.el"
+
+  if [ -f "$target" ]; then
+    # init.el exists, check if it loads required-packages
+    if grep -q "required-packages" "$target"; then
+      success "init.el already loads required-packages"
+      return 0
+    else
+      # Add required-packages load
+      log "Adding required-packages load to init.el..."
+      # Insert before (provide 'init) if it exists
+      if grep -q "(provide 'init)" "$target"; then
+        sed -i '' "/^(provide 'init)/i\\
+(load \"~/.emacs.d/required-packages\")\\
+" "$target"
+      else
+        # Otherwise just append
+        echo "(load \"~/.emacs.d/required-packages\")" >> "$target"
+      fi
+      success "Updated init.el"
+      return 0
+    fi
+  fi
+
+  # init.el doesn't exist, create it
+  log "Creating init.el..."
+  cat > "$target" << 'EOF'
+;;; init.el --- Main Emacs initialization file -*- lexical-binding: t; -*-
+
+(load "~/.emacs.d/required-packages")
+
+(provide 'init)
+;;; init.el ends here
+EOF
+  success "Created $target"
+  return 0
+}
+
 install_direnv() {
   if command -v direnv &>/dev/null; then
     success "direnv already installed"

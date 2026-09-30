@@ -63,6 +63,13 @@ ensure_properties_local "$EMACS_DIR" || {
   exit 1
 }
 
+# ── Set up init.el ──────────────────────────────────────────────
+
+ensure_init_el "$EMACS_DIR" || {
+  error "Failed to set up init.el"
+  exit 1
+}
+
 # ── Summary ──────────────────────────────────────────────────────
 
 echo ""
