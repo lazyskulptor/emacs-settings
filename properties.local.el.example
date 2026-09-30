@@ -72,4 +72,11 @@
  mail-accounts nil
 
  ;; Senders whose emails should auto-summarize in mail digest
- mail-digest-senders nil)
+ mail-digest-senders nil
+
+ ;; ─────────────────────────────────────────────────────────────
+ ;; Native compilation (GCC settings)
+ ;; ─────────────────────────────────────────────────────────────
+
+ ;; GCC version for native-comp (Homebrew GCC, e.g., "16", "14")
+ gcc-version "16")

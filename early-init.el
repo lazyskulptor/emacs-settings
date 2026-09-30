@@ -1,9 +1,24 @@
 ;; Disable package.el — straight.el manages everything
 (setq package-enable-at-startup nil)
 
-;; Fix native-comp on macOS + Homebrew: point Emacs to libgccjit + libgcc.a
+;; Configure native-compilation with Homebrew GCC (from properties.local.el)
 (when (eq system-type 'darwin)
-  (setenv "LIBRARY_PATH"
-          (concat "/opt/homebrew/lib/gcc/current"
-                  ":/opt/homebrew/lib/gcc/current/gcc/aarch64-apple-darwin24/14"
-                  ":/opt/homebrew/lib")))
+  ;; Load GCC version from properties.local.el
+  (let ((gcc-version "16"))  ; default fallback
+    (condition-case nil
+        (progn
+          (load "~/.emacs.d/properties" t)  ; load properties.el silently
+          (load "~/.emacs.d/properties.local" t))  ; load local overrides silently
+      (error nil))
+
+    ;; Set up libgccjit and GCC compiler paths
+    (when (boundp 'gcc-version)
+      (setq gcc-version gcc-version))
+
+    (setenv "LIBRARY_PATH"
+            (concat (format "/opt/homebrew/lib/gcc/%s" gcc-version)
+                    ":/opt/homebrew/lib/gcc/current"
+                    ":/opt/homebrew/lib"))
+
+    (setenv "CC" (format "/opt/homebrew/bin/gcc-%s" gcc-version))
+    (setenv "CXX" (format "/opt/homebrew/bin/g++-%s" gcc-version))))
