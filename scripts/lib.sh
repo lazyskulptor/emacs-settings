@@ -118,10 +118,8 @@ install_deps() {
   local emacs_dir="${1:-.}"
 
   log "Installing Python dependencies..."
-  if [ -d "$emacs_dir/.venv" ]; then
-    uv sync --directory "$emacs_dir" || return 1
-  else
-    error ".venv not found in $emacs_dir"
+  if ! uv sync --directory "$emacs_dir"; then
+    error "Failed to run uv sync"
     return 1
   fi
 
