@@ -20,14 +20,14 @@ PASSWORD_ENV = "EMACS_WINRM_PASSWORD"
 def _add_connection_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--host", required=True)
     parser.add_argument("--username", required=True)
-    parser.add_argument("--port", type=int, default=5986)
-    parser.add_argument("--auth", default="negotiate")
+    parser.add_argument("--port", type=int, default=5985)  # HTTP default
+    parser.add_argument("--auth", default="basic")  # basic auth for non-SSL
     parser.add_argument("--proxy", help="Proxy URL, such as socks5h://127.0.0.1:1081")
     parser.add_argument(
-        "--ssl", action=argparse.BooleanOptionalAction, default=True
+        "--ssl", action=argparse.BooleanOptionalAction, default=False  # HTTP by default
     )
     parser.add_argument(
-        "--cert-validation", action=argparse.BooleanOptionalAction, default=True
+        "--verify-ssl", action=argparse.BooleanOptionalAction, default=True
     )
     parser.add_argument("--local-file", type=Path, required=True)
     parser.add_argument("--remote-path")
@@ -71,16 +71,19 @@ def _redact(message: str, password: str) -> str:
 
 
 def _client(args: argparse.Namespace, password: str) -> Client:
-    return Client(
-        args.host,
-        username=args.username,
-        password=password,
-        port=args.port,
-        ssl=args.ssl,
-        auth=args.auth,
-        cert_validation=args.cert_validation,
-        proxy=args.proxy,
-    )
+    kwargs = {
+        "username": args.username,
+        "password": password,
+        "port": args.port,
+        "ssl": args.ssl,
+        "auth": args.auth,
+        "proxy": args.proxy,
+        "verify_ssl": args.verify_ssl,
+    }
+    # For basic auth without SSL, encryption must be set to 'never'
+    if args.auth == "basic" and not args.ssl:
+        kwargs["encryption"] = "never"
+    return Client(args.host, **kwargs)
 
 
 def main(

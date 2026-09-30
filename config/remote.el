@@ -107,21 +107,6 @@
   :type 'file
   :group 'ssh-servers)
 
-(defcustom winrm-iterm-application "iTerm"
-  "macOS application name used for interactive WinRM sessions."
-  :type 'string
-  :group 'ssh-servers)
-
-(defcustom winrm-cli-program "evil-winrm"
-  "Executable opened in iTerm for interactive WinRM sessions."
-  :type 'string
-  :group 'ssh-servers)
-
-(defcustom winrm-proxychains-program "proxychains4"
-  "Proxychains executable used to route Evil-WinRM through SOCKS5."
-  :type 'string
-  :group 'ssh-servers)
-
 (defcustom winrm-socks-proxy-host "127.0.0.1"
   "SOCKS5 proxy host used for WinRM connections."
   :type 'string
@@ -364,17 +349,6 @@ Named function으로 정의해 `remote.el' 재평가 시 advice가 중복으로
   "Return the SOCKS5 proxy URL used by the Python WinRM bridge."
   (format "socks5h://%s:%s" winrm-socks-proxy-host winrm-socks-proxy-port))
 
-(defun winrm--proxychains-config ()
-  "Write and return the proxychains config used by Evil-WinRM."
-  (let ((file (expand-file-name ".cache/proxychains-winrm.conf" my/emacs-dir)))
-    (make-directory (file-name-directory file) t)
-    (with-temp-file file
-      (insert "strict_chain\nquiet_mode\nproxy_dns\n"
-              "[ProxyList]\n"
-              (format "socks5 %s %s\n"
-                      winrm-socks-proxy-host winrm-socks-proxy-port)))
-    file))
-
 (defun winrm--start (operation server local-file &optional remote-path arguments secure)
   "Run WinRM OPERATION for SERVER and LOCAL-FILE.
 REMOTE-PATH overrides the generated destination.  ARGUMENTS are passed to the
@@ -386,17 +360,16 @@ PowerShell script when OPERATION is `run'.  SECURE uses HTTPS when non-nil."
          (password (winrm--password server))
          (file (expand-file-name local-file))
          (buffer (get-buffer-create (format "*WinRM %s*" host)))
-         (command (list python script (symbol-name operation)
-                        "--host" host
-                        "--username" account
-                        "--port" (number-to-string
-                                  (if secure winrm-https-port winrm-http-port))
-                        (if secure "--ssl" "--no-ssl")
-                        (if (and secure winrm-validate-certificate)
-                            "--cert-validation"
-                          "--no-cert-validation")
-                        "--proxy" (winrm--proxy-url)
-                        "--local-file" file)))
+         (command (append (list python script (symbol-name operation)
+                               "--host" host
+                               "--username" account
+                               "--port" (number-to-string
+                                         (if secure winrm-https-port winrm-http-port))
+                               (if secure "--ssl" "--no-ssl")
+                               "--proxy" (winrm--proxy-url)
+                               "--local-file" file)
+                         (unless winrm-validate-certificate
+                           (list "--no-verify-ssl")))))
     (unless (file-readable-p script)
       (user-error "WinRM bridge not found: %s" script))
     (unless (file-readable-p file)
@@ -455,15 +428,6 @@ PowerShell script when OPERATION is `run'.  SECURE uses HTTPS when non-nil."
     (user-error "Current file is not a .ps1 file"))
   buffer-file-name)
 
-(defun winrm--applescript-string (value)
-  "Quote VALUE for an AppleScript string literal."
-  (concat "\""
-          (replace-regexp-in-string
-           "\"" "\\\\\""
-           (replace-regexp-in-string "\\\\" "\\\\\\\\" value t t)
-           t t)
-          "\""))
-
 (defun winrm-upload-current-file ()
   "Upload the current PowerShell file to the selected WinRM server."
   (interactive)
@@ -480,47 +444,6 @@ PowerShell script when OPERATION is `run'.  SECURE uses HTTPS when non-nil."
                   nil
                   nil
                   winrm-selected-secure))
-
-(defun winrm--open-cli (server &optional secure)
-  "Open an Evil-WinRM session for SERVER in iTerm, using HTTPS when SECURE."
-  (let* ((host (winrm--server-value server :host "host"))
-         (account (winrm--server-value server :account "account"))
-         (evil-winrm (winrm--executable winrm-cli-program))
-         (proxychains (winrm--executable winrm-proxychains-program))
-         (proxy-config (winrm--proxychains-config))
-         (command (mapconcat
-                   #'shell-quote-argument
-                   (append (list "env"
-                                 "-u" "http_proxy"
-                                 "-u" "https_proxy"
-                                 "-u" "HTTP_PROXY"
-                                 "-u" "HTTPS_PROXY"
-                                 proxychains "-q" "-f" proxy-config
-                                 evil-winrm "-i" host "-u" account
-                                 "-P" (number-to-string
-                                       (if secure winrm-https-port winrm-http-port)))
-                           (when secure (list "-S")))
-                   " "))
-         (script (list "on run argv"
-                       (format "tell application %s"
-                               (winrm--applescript-string winrm-iterm-application))
-                       "activate"
-                       "if (count of windows) is 0 then"
-                       "create window with default profile"
-                       "else"
-                       "tell current window to create tab with default profile"
-                       "end if"
-                       "tell current session of current window to write text (item 1 of argv)"
-                       "end tell"
-                       "end run"))
-         (args nil))
-    (unless (zerop (call-process "open" nil nil nil "-Ra" winrm-iterm-application))
-      (user-error "iTerm application not found: %s" winrm-iterm-application))
-    (dolist (line script)
-      (setq args (append args (list "-e" line))))
-    (setq args (append args (list "--" command)))
-    (apply #'start-process "winrm-iterm" nil "osascript" args)
-    (message "Starting Evil-WinRM in iTerm: %s@%s" account host)))
 
 ;; ── org-link 핸들러 ────────────────────────────────────────
 
@@ -580,9 +503,6 @@ PowerShell script when OPERATION is `run'.  SECURE uses HTTPS when non-nil."
           ((string= path "run")
            (winrm--select-server row secure)
            (call-interactively #'winrm-run-file))
-          ((string= path "cli")
-           (winrm--select-server row secure)
-           (winrm--open-cli row secure))
           (t (message "Unknown winrm path: %s" path)))))
 
 (defun ssh-servers--link-follow-winrm (path)
