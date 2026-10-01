@@ -1,3 +1,5 @@
+;;; properties.el --- Common configuration variables -*- lexical-binding: t; -*-
+
 ;; Common environment variables (non-sensitive, machine-agnostic)
 
 (let ((local-bin (expand-file-name "~/.local/bin")))

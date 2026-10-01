@@ -5,6 +5,27 @@
 
 ;;; Code:
 
+;; ── Configure native-compilation with GCC 16 ────────────────────────
+(when (eq system-type 'darwin)
+  (let ((gcc-ver "16")
+        (gcc-lib-path "/opt/homebrew/lib/gcc/16"))
+    ;; Set up libgccjit and GCC compiler paths
+    (setenv "LIBRARY_PATH"
+            (concat gcc-lib-path
+                    ":/opt/homebrew/lib"
+                    ":" (or (getenv "LIBRARY_PATH") "")))
+    (setenv "CC" (format "/opt/homebrew/bin/gcc-%s" gcc-ver))
+    (setenv "CXX" (format "/opt/homebrew/bin/g++-%s" gcc-ver))))
+
+;; Enable native-compilation
+(setq native-comp-jit-compilation t)
+(setq native-comp-async-report-warnings-errors 'silent)
+
+;; Disable session saving (clean installation experience)
+(setq desktop-save-mode nil)
+
+;; ────────────────────────────────────────────────────────────────────
+
 (load "~/.emacs.d/properties")
 (push (expand-file-name "~/.emacs.d/config") load-path)
 (push (expand-file-name "~/.emacs.d/config/ide") load-path)

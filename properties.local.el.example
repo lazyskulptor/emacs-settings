@@ -79,4 +79,12 @@
  ;; ─────────────────────────────────────────────────────────────
 
  ;; GCC version for native-comp (Homebrew GCC, e.g., "16", "14")
- gcc-version "16")
+ gcc-version "16"
+
+ ;; ─────────────────────────────────────────────────────────────
+ ;; Session management (optional)
+ ;; ─────────────────────────────────────────────────────────────
+
+ ;; Enable session restoration (previous buffers, cursor positions)
+ ;; desktop-save-mode t
+ )

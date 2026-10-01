@@ -1,4 +1,6 @@
+early-init.el
 init.el
+init_bash.sh
 snippets/
 config/sql-connection.el
 config/sql-connections.el

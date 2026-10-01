@@ -42,6 +42,14 @@
 ;; 폰트 설정
 (set-face-attribute 'default nil :font "Monoid" :height 130)
 
+;; 테마 설정 (properties.local.el에서 설정)
+(when additional-theme-load-paths
+  (dolist (path additional-theme-load-paths)
+    (add-to-list 'custom-theme-load-path path)))
+
+(when theme-name
+  (load-theme (intern theme-name) t))
+
 ;; 괄호 짝 강조
 (show-paren-mode 1)
 
